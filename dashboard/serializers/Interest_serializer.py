@@ -1,0 +1,108 @@
+from rest_framework import serializers
+from main.models import Interests, InterestDetail, Group, LANGUAGE_CHOICES
+
+def get_fallback_detail(qs, lang, default_lang="uz"):
+    detail = qs.filter(language=lang).first() if lang else None
+    if detail:
+        return detail
+    if default_lang and lang != default_lang:
+        detail = qs.filter(language=default_lang).first()
+        if detail:
+            return detail
+    return qs.first()
+
+
+class InterestDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InterestDetail
+        fields = ['id', 'name', 'description', 'slug']
+
+
+class InterestsSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(write_only=True)
+    description = serializers.CharField(write_only=True)
+    group = serializers.PrimaryKeyRelatedField(queryset=Group.objects.all())
+    translation_statuses = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Interests
+        fields = ['id', 'group', 'created', 'name', 'description', 'translation_statuses']
+
+    def get_language(self):
+        return self.context.get('language', 'uz')
+
+    def get_translation_statuses(self, obj):
+        active_langs = obj.interests.values_list('language', flat=True)
+        return [
+            {"code": code, "is_active": True}
+            for code, _ in LANGUAGE_CHOICES
+            if code in active_langs
+        ]
+
+    def create(self, validated_data):
+        lang = self.get_language()
+        name = validated_data.pop('name')
+        description = validated_data.pop('description')
+        group = validated_data.pop('group')
+
+        if Interests.objects.filter(group=group).exists():
+            raise serializers.ValidationError({'group':'Bu gruppada interest mavjud'})
+
+        interests = Interests.objects.create(group=group, **validated_data)
+
+        InterestDetail.objects.create(
+            interests=interests,
+            language=lang,
+            name=name,
+            description=description
+        )
+
+        return interests
+
+    def update(self, instance, validated_data):
+        lang = self.get_language()
+        name = validated_data.pop('name', None)
+        description = validated_data.pop('description', None)
+        group = validated_data.pop('group', None)
+
+        if group is not None:
+            instance.group = group
+            instance.save(update_fields=['group'])
+
+        if name or description:
+            InterestDetail.objects.update_or_create(
+                interests=instance,
+                language=lang,
+                defaults={
+                    'name': name,
+                    'description': description
+                }
+            )
+
+        return instance
+
+    def to_representation(self, instance):
+        lang = self.get_language()
+        detail = get_fallback_detail(instance.interests, lang)
+
+        data = {
+            "id": instance.id,
+            "group": str(instance.group_id),
+            "created": instance.created,
+            "translation_statuses": self.get_translation_statuses(instance)
+        }
+
+        if detail:
+            data.update({
+                "name": detail.name,
+                "description": detail.description,
+                "slug": detail.slug
+            })
+        else:
+            data.update({
+                "name": None,
+                "description": None,
+                "slug": None
+            })
+
+        return data
