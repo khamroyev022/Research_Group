@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.filters import SearchFilter
 from main.models import *
-from .models import CustomerUser
+from .models import CustomerUser, PasswordResetCode
 from .serializers.direction_serializer import *
 from .serializers.group_serializer import *
 from .serializers.login_serialzer import *
@@ -21,7 +21,11 @@ from .pagination import DefaultPagination
 from .serializers.projects_serializer import *
 from rest_framework.decorators import parser_classes
 from django_filters.rest_framework import DjangoFilterBackend
+from .serializers.Restartpasswordserializer import *
 from .filters import *
+
+import random
+from django.core.mail import send_mail
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
@@ -57,30 +61,94 @@ def loginviews(request):
         'user': {
             'id': user.id,
             'username': user.username,
+            "Admin":"Adminstrator",
+            "email": user.email,
         }
     }, status=status.HTTP_200_OK)
 
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def register(request):
-    
-    ser = RegSerializer(data=request.data)
+def generate_code():
+    return f"{random.randint(0, 999999):06d}"
 
-    if ser.is_valid():
-        user = ser.save()
-        return Response({
-                'success': 'foydalanuvchi yaratildi',
-                'user_id': user.id,
-                'username': user.username
-            },status=status.HTTP_201_CREATED) 
-    return Response(ser.errors,status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def forgot_password(request):
+    ser = ForgotPasswordSerializer(data=request.data)
+    ser.is_valid(raise_exception=True)
+
+    email = ser.validated_data["email"]
+    user = CustomerUser.objects.filter(email=email).first()
+    if not user:
+        return Response({"error": "Bunday email topilmadi"}, status=status.HTTP_404_NOT_FOUND)
+
+    code = generate_code()
+
+    # eski kodlarni ishlatib bo‘lmasin (xohlasangiz)
+    PasswordResetCode.objects.filter(user=user, is_used=False).update(is_used=True)
+
+    PasswordResetCode.objects.create(user=user, code=code)
+
+    send_mail(
+        subject="Parolni tiklash kodi",
+        message=f"Sizning parolni tiklash kodingiz: {code}\nKod 10 daqiqa amal qiladi.",
+        from_email=None,
+        recipient_list=[email],
+        fail_silently=False
+    )
+
+    return Response({"success": "Kod emailga yuborildi"}, status=status.HTTP_200_OK)
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def reset_password(request):
+    ser = ResetPasswordSerializer(data=request.data)
+    ser.is_valid(raise_exception=True)
+
+    email = ser.validated_data["email"]
+    code = ser.validated_data["code"]
+    new_password = ser.validated_data["new_password"]
+
+    user = CustomerUser.objects.filter(email=email).first()
+    if not user:
+        return Response({"error": "Bunday email topilmadi"}, status=status.HTTP_404_NOT_FOUND)
+
+    obj = PasswordResetCode.objects.filter(user=user, code=code, is_used=False).order_by("-created_at").first()
+    if not obj:
+        return Response({"error": "Kod noto‘g‘ri"}, status=status.HTTP_400_BAD_REQUEST)
+
+    if obj.is_expired():
+        return Response({"error": "Kod muddati tugagan"}, status=status.HTTP_400_BAD_REQUEST)
+
+    user.set_password(new_password)
+    user.save()
+
+    obj.is_used = True
+    obj.save()
+
+    return Response({"success": "Parol yangilandi"}, status=status.HTTP_200_OK)
+
+
+# @api_view(['POST'])
+# @permission_classes([AllowAny])
+# def register(request):
+#
+#     ser = RegSerializer(data=request.data)
+#
+#     if ser.is_valid():
+#         user = ser.save()
+#         return Response({
+#                 'success': 'foydalanuvchi yaratildi',
+#                 'user_id': user.id,
+#                 'username': user.username
+#             },status=status.HTTP_201_CREATED)
+#     return Response(ser.errors,status=status.HTTP_400_BAD_REQUEST)
 
 class DirectionCRUDViews(ModelViewSet):
     queryset = Direction.objects.all()
     serializer_class = DirectionSerializer
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
     pagination_class = None
-    permission_classes=[AllowAny]
     search_fields =['name']
     def get_serializer_context(self):
             context = super().get_serializer_context()
@@ -90,7 +158,7 @@ class DirectionCRUDViews(ModelViewSet):
 class CountryViewSet(viewsets.ModelViewSet):
     queryset = Country.objects.all()
     serializer_class = CountrySerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     pagination_class = DefaultPagination
     search_fields =['name','description']
 
@@ -102,7 +170,7 @@ class CountryViewSet(viewsets.ModelViewSet):
 class GroupViewset(ModelViewSet):
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     pagination_class = DefaultPagination
     parser_classes = [MultiPartParser, FormParser]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -116,11 +184,10 @@ class GroupViewset(ModelViewSet):
         context['language'] = self.request.headers.get('Accept-Language', 'uz')
         return context
 
-
 class UniversityViews(ModelViewSet):
     queryset = University.objects.all()
     serializer_class = UniversitySerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     pagination_class = DefaultPagination
     def get_serializer_context(self):
         contex = super().get_serializer_context()
@@ -128,7 +195,7 @@ class UniversityViews(ModelViewSet):
         return contex
 
 @api_view(["PATCH", "GET"])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def groupactiveviews(request, group_id):
     try:
         group = Group.objects.get(id=group_id)
@@ -154,11 +221,19 @@ def groupactiveviews(request, group_id):
 class MemberViewset(ModelViewSet):
     queryset = Member.objects.all()
     serializer_class = MemberSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     pagination_class = DefaultPagination
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_class = MemberFilter
+    search_fields = [
+        'details__full_name',
+        'email',
+        'phone',
+        'details__affiliation',
+    ]
 
-    filter_backends = [DjangoFilterBackend, SearchFilter]
-    filterset_class = MemberFilter  # <-- mana shu
+    ordering_fields = ['created', 'status', 'email']
+    ordering = ['-created']
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -168,12 +243,12 @@ class MemberViewset(ModelViewSet):
 class PublicationViewSet(ModelViewSet):
     queryset = Publication.objects.all().order_by('created_at')
     serializer_class = PublicationSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     pagination_class = DefaultPagination
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_fields = ['group','publisher',]
-    search_fields  = ['title']
-
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_class = PublicationFilter
+    search_fields = ['details__title', 'details__topic']
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -183,7 +258,7 @@ class PublicationViewSet(ModelViewSet):
 class PublishViewset(ModelViewSet):
     queryset = Publisher.objects.all()
     serializer_class = PublisherSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     pagination_class = DefaultPagination
 
     def get_serializer_context(self):
@@ -194,9 +269,17 @@ class PublishViewset(ModelViewSet):
 class ProjectsViewSet(ModelViewSet):
     queryset = Projects.objects.all()
     serializer_class = ProjectsSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     pagination_class = DefaultPagination
-
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_class = ProjectsFilter
+    search_fields = [
+        'translations__title',
+        'translations__topic',
+        'translations__description',
+    ]
+    ordering_fields = ['amount', 'start_date', 'end_date', 'id']
+    ordering = ['-id']
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context['language'] = self.request.headers.get('Accept-Language', 'uz')
@@ -205,7 +288,7 @@ class ProjectsViewSet(ModelViewSet):
 class InterestsViewSet(ModelViewSet):
     queryset = Interests.objects.all()
     serializer_class = InterestsSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     pagination_class = None
 
     def get_serializer_context(self):
@@ -244,11 +327,10 @@ class InterestsViewSet(ModelViewSet):
         serializer = self.get_serializer(interests)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-
 class AchivmentViewSet(ModelViewSet):
     queryset = Achivment.objects.all()
     serializer_class = AchivmentSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     pagination_class = None
     parser_classes = [MultiPartParser, FormParser]
 
@@ -281,11 +363,10 @@ class AchivmentViewSet(ModelViewSet):
         serializer = self.get_serializer(qs, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-
 class PartnershipViewSet(ModelViewSet):
     queryset = Partnership.objects.all()
     serializer_class = PartnershipSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     pagination_class = None
     parser_classes = [MultiPartParser, FormParser]
 
@@ -315,12 +396,10 @@ class PartnershipViewSet(ModelViewSet):
         serializer = self.get_serializer(qs,many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-
-
 class ReserchStudentViewSet(ModelViewSet):
     queryset = ReserchStudent.objects.all()
     serializer_class = ReserchStudentSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     pagination_class = None
     parser_classes = [MultiPartParser, FormParser]
 
@@ -339,7 +418,7 @@ class ReserchStudentViewSet(ModelViewSet):
 class ResourcesViewSet(ModelViewSet):
     queryset = Resources.objects.all()
     serializer_class = ResourcesSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     pagination_class = None
     parser_classes = [MultiPartParser, FormParser]
 
@@ -370,13 +449,18 @@ class ResourcesViewSet(ModelViewSet):
         serializer = self.get_serializer(qs, many=True)
         return Response(serializer.data)
 
-
 class NewsActivitiesViewSet(ModelViewSet):
     queryset = NewsActivities.objects.all()
     serializer_class = NewsActivitiesSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     pagination_class = DefaultPagination
     parser_classes = [MultiPartParser, FormParser]
+    filterset_class = NewsActivitiesFilter
+    filter_backends = [DjangoFilterBackend,SearchFilter        ]
+    search_fields = [
+        'newsactive__title',
+        'newsactive__description',
+    ]
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -389,15 +473,18 @@ class NewsActivitiesViewSet(ModelViewSet):
         context = super().get_serializer_context()
         context['language'] = self.request.headers.get('Accept-Language', 'uz')
         return context
-
 
 class ConferencesSeminarsViewSet(ModelViewSet):
     queryset = ConferencesSeminars.objects.all()
     serializer_class = ConferencesSeminarsSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
     pagination_class = DefaultPagination
-
+    django_filters = [DjangoFilterBackend,SearchFilter]
+    search_fields = [
+        "conferencesseminars__title",
+        "conferencesseminars__description",
+    ]
     def get_queryset(self):
         queryset = super().get_queryset()
         group_id = self.request.query_params.get("group_id")
@@ -409,12 +496,11 @@ class ConferencesSeminarsViewSet(ModelViewSet):
         context = super().get_serializer_context()
         context['language'] = self.request.headers.get('Accept-Language', 'uz')
         return context
-
 
 class SliderGroupViewSet(ModelViewSet):
     queryset = SliderGroup.objects.all()
     serializer_class = SliderGroupSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     pagination_class = DefaultPagination
     parser_classes = [MultiPartParser, FormParser]
 
@@ -430,11 +516,10 @@ class SliderGroupViewSet(ModelViewSet):
         context['language'] = self.request.headers.get('Accept-Language', 'uz')
         return context
 
-
 class GroupMediaViewSet(ModelViewSet):
     queryset = GroupMedia.objects.select_related("group").all().order_by("-id")
     serializer_class = MediaSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     pagination_class = DefaultPagination
     parser_classes = [MultiPartParser, FormParser]
 
@@ -485,13 +570,10 @@ class GroupMediaViewSet(ModelViewSet):
         out = self.get_serializer(media)
         return Response(out.data, status=status.HTTP_201_CREATED)
 
-
-
-
 class SosialLinkViewset(ModelViewSet):
     queryset = SosialLink.objects.all()
     serializer_class = SocialLinkSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     pagination_class = None
     def get_queryset(self):
         qs = super().get_queryset()

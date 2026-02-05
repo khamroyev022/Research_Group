@@ -24,7 +24,10 @@ router.register('group-media',GroupMediaViewSet)
 router.register('social-links',SosialLinkViewset)
 urlpatterns =[
     path('login/',loginviews,),
-    path('register/',register,),
+    # path('register/',register,),
     path('groups/is-active/<uuid:group_id>', groupactiveviews),
     path('groups/is-active/<uuid:group_id>/', groupactiveviews),
+    path("auth/forgot-password/", forgot_password),
+    # path("auth/verify-reset-code/", verify_reset_code),
+    path("auth/reset-password/", reset_password),
 ] + router.urls

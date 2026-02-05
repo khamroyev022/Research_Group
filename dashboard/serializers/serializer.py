@@ -50,11 +50,32 @@ class GroupMiniSerializer(serializers.ModelSerializer):
         model = Group
         fields = ["id", "name"]
 
+class GroupShortSerializer(LangMixin, serializers.ModelSerializer):
+    name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Group
+        fields = ("id", "name")
+
+    def get_name(self, obj):
+        lang = self.get_language()
+
+        tr = get_fallback_detail(obj.group, lang)
+        return tr.name if tr else None
+
 class PublicationSerializer(LangMixin, serializers.ModelSerializer):
     title = serializers.CharField(write_only=True, required=False, allow_null=True, allow_blank=True)
     topic = serializers.CharField(write_only=True, required=False, allow_null=True, allow_blank=True)
 
-    group = serializers.PrimaryKeyRelatedField(queryset=Group.objects.all())
+    # ✅ request uchun: group ID yuborasiz
+    group_id = serializers.PrimaryKeyRelatedField(
+        queryset=Group.objects.all(),
+        write_only=True,
+        source="group"
+    )
+
+    # ✅ response uchun: group id + name qaytadi
+    group = GroupShortSerializer(read_only=True)
 
     publisher_id = serializers.PrimaryKeyRelatedField(
         queryset=Publisher.objects.all(),
@@ -78,9 +99,10 @@ class PublicationSerializer(LangMixin, serializers.ModelSerializer):
         model = Publication
         fields = (
             "id", "url", "publication_date", "featured",
-            "title", "topic", "publisher_id",
-            "publisher", "slug",
-            "member_ids", "members", "group",
+            "title", "topic",
+            "publisher_id", "publisher", "slug",
+            "member_ids", "members",
+            "group_id", "group",   # ✅ o'zgardi
         )
 
     def get_translation(self, obj):
@@ -109,6 +131,7 @@ class PublicationSerializer(LangMixin, serializers.ModelSerializer):
         member_ids = validated_data.pop("member_ids", [])
 
         publication = Publication.objects.create(**validated_data)
+
         if member_ids:
             publication.members.set(member_ids)
 
@@ -147,6 +170,7 @@ class PublicationSerializer(LangMixin, serializers.ModelSerializer):
             tr.save()
 
         return instance
+
 
 from main.models import *
 from rest_framework import serializers

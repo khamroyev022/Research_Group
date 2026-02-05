@@ -169,9 +169,9 @@ class Member(models.Model):
         related_name='members'
     )
 
-    orcid = models.URLField(blank=True)
-    google_scholar = models.URLField(blank=True)
-    scopus = models.URLField(blank=True)
+    orcid = models.URLField(blank=True,null=True)
+    google_scholar = models.URLField(blank=True,null=True)
+    scopus = models.URLField(blank=True,null=True)
     created = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=150,choices=STATUS_CHOISE, default='new')
 
@@ -186,7 +186,7 @@ class MemberDetail(models.Model):
         related_name='details'
     )
     language = models.CharField(max_length=2, choices=LANGUAGE_CHOICES,default='uz')
-    full_name = models.CharField(max_length=100,null=False, blank=False)
+    full_name = models.CharField(max_length=100)
     affiliation = models.CharField(max_length=200,null=True, blank=True)
     about = models.TextField(null=True, blank=True)
     slug = models.SlugField(max_length=120, blank=True)
@@ -248,16 +248,6 @@ class MemberPublication(models.Model):
 
     class Meta:
         unique_together = ('member', 'publication')
-
-class Contact(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    member = models.ForeignKey(
-        Member,
-        on_delete=models.CASCADE,
-        related_name='contacts'
-    )
-    message = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)
 
 class Interests(models.Model):
     id = models.UUIDField(primary_key=True,default=uuid.uuid4, editable=False)
@@ -360,7 +350,6 @@ class PartnershipDetail(models.Model):
 
     def __str__(self):
         return self.title
-
 
 class ReserchStudent(models.Model):
     id = models.UUIDField(primary_key=True, editable=False, default=uuid.uuid4)
