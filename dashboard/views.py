@@ -83,7 +83,6 @@ def forgot_password(request):
 
     code = generate_code()
 
-    # eski kodlarni ishlatib bo‘lmasin (xohlasangiz)
     PasswordResetCode.objects.filter(user=user, is_used=False).update(is_used=True)
 
     PasswordResetCode.objects.create(user=user, code=code)
@@ -97,6 +96,29 @@ def forgot_password(request):
     )
 
     return Response({"success": "Kod emailga yuborildi"}, status=status.HTTP_200_OK)
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def verify_reset_code(request):
+    ser = VerifyResetCodeSerializer(data=request.data)
+    ser.is_valid(raise_exception=True)
+
+    email = ser.validated_data["email"]
+    code = ser.validated_data["code"]
+
+    user = CustomerUser.objects.filter(email=email).first()
+    if not user:
+        return Response({"error": "Bunday email topilmadi"}, status=status.HTTP_404_NOT_FOUND)
+
+    obj = PasswordResetCode.objects.filter(user=user, code=code, is_used=False).order_by("-created_at").first()
+    if not obj:
+        return Response({"error": "Kod noto‘g‘ri"}, status=status.HTTP_400_BAD_REQUEST)
+
+    if obj.is_expired():
+        return Response({"error": "Kod muddati tugagan"}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response({"success": "Kod to‘g‘ri"}, status=status.HTTP_200_OK)
 
 
 @api_view(["POST"])
