@@ -174,7 +174,6 @@ class UniversitySerializer(serializers.ModelSerializer):
         return self.context.get('language', 'uz')
 
     def get_translation_statuses(self, obj):
-        # UniversityDetail da is_active flag yo‘q, shuning uchun mavjud tillar
         active_langs = obj.details.values_list('language', flat=True)
         return [
             {"code": code, "is_active": True}

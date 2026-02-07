@@ -608,6 +608,40 @@ class SosialLinkViewset(ModelViewSet):
 
 
 
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def statictika(request):
+    group_count = Group.objects.count()
+    member_count = Member.objects.count()
+    country_count = Country.objects.count()
+    publication_count = Publication.objects.count()
+    news_count = News.objects.count()
+    confiresnising_count = ConferencesSeminars.objects.count()
+    return Response({
+        "group_count": group_count,
+        "member_count": member_count,
+        "country_count": country_count,
+        "publication_count": publication_count,
+        "news_count": news_count,
+        "confiresnising_count": confiresnising_count
+    },status=status.HTTP_200_OK)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

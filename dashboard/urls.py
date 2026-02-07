@@ -30,4 +30,5 @@ urlpatterns =[
     path("auth/forgot-password/", forgot_password),
     path("auth/verify-reset-code/", verify_reset_code),
     path("auth/reset-password/", reset_password),
+    path('statistika/',statictika)
 ] + router.urls

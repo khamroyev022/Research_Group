@@ -12,11 +12,66 @@ from rest_framework import status
 @permission_classes([AllowAny])
 def group_list_api(request):
     lang = request.headers.get("Accept-Language", "uz")
+    qs = Group.objects.all().prefetch_related("group")
 
-    qs = Group.objects.all().prefetch_related("group")  
-
-    serializer = GroupOneLangSerializer(qs, many=True, context={"language": lang})
+    serializer = GroupSerializer(qs, many=True, context={"language": lang, "request": request})
     return Response({
         "language": lang,
         "data":serializer.data
     },status=status.HTTP_200_OK)
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def direction_list_list(request):
+    lang = request.headers.get("Accept-Language", "uz")
+    qs = Direction.objects.all().prefetch_related("details")
+
+    ser = DirectionSerializer(qs, many=True, context={"language": lang})
+    return Response({
+        "language": lang,
+        "data":ser.data
+    },status=status.HTTP_200_OK)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

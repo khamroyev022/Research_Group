@@ -67,14 +67,13 @@ class PublicationSerializer(LangMixin, serializers.ModelSerializer):
     title = serializers.CharField(write_only=True, required=False, allow_null=True, allow_blank=True)
     topic = serializers.CharField(write_only=True, required=False, allow_null=True, allow_blank=True)
 
-    # ✅ request uchun: group ID yuborasiz
+
     group_id = serializers.PrimaryKeyRelatedField(
         queryset=Group.objects.all(),
         write_only=True,
         source="group"
     )
 
-    # ✅ response uchun: group id + name qaytadi
     group = GroupShortSerializer(read_only=True)
 
     publisher_id = serializers.PrimaryKeyRelatedField(
@@ -102,7 +101,7 @@ class PublicationSerializer(LangMixin, serializers.ModelSerializer):
             "title", "topic",
             "publisher_id", "publisher", "slug",
             "member_ids", "members",
-            "group_id", "group",   # ✅ o'zgardi
+            "group_id", "group",
         )
 
     def get_translation(self, obj):

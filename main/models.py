@@ -1,5 +1,3 @@
-
-# Create your tests here.
 from django.db import models
 from django.utils.text import slugify
 import uuid
@@ -13,6 +11,7 @@ LANGUAGE_CHOICES = (
     ('ru', 'Russian'),
     ('en', 'English'),
 )
+
 STATUS_CHOISE = (
     ('new',"Yangi"),
     ('in_progress','Jarayonda'),
