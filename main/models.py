@@ -110,7 +110,7 @@ class DirectionDetail(models.Model):
 
 class Group(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    image = models.ImageField(upload_to='groups/', null=True)
+    image = models.ImageField(upload_to='media/groups/', null=True)
     is_active = models.BooleanField(default=True)
     created = models.DateTimeField(auto_now_add=True)
     direction = models.ForeignKey(
@@ -125,7 +125,7 @@ class GroupDetail(models.Model):
     group = models.ForeignKey(
         Group,
         on_delete=models.CASCADE,
-       related_name='group'
+       related_name='details'
     )
     language = models.CharField(max_length=2, choices=LANGUAGE_CHOICES,default='uz')
     name = models.CharField(max_length=255)

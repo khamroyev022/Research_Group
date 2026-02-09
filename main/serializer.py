@@ -1,3 +1,6 @@
+from msilib.schema import Media
+from os import name
+
 from rest_framework import serializers
 from .models import *
 
@@ -32,44 +35,12 @@ class OneLangDetailMixin:
         return get_fallback_detail(qs, self.get_language(), self.default_lang)
 
 
-class GroupSerializer(OneLangDetailMixin, serializers.ModelSerializer):
-    detail_related_name = "group"
+class DirectionSerializer(serializers.ModelSerializer):
     name = serializers.SerializerMethodField()
     description = serializers.SerializerMethodField()
     slug = serializers.SerializerMethodField()
     image = serializers.SerializerMethodField()
 
-    class Meta:
-        model = Group
-        fields = ("id", "image", "is_active", "created", "direction", "name", "description", "slug")
-    def get_image(self, obj):
-        request = self.context.get("request")
-        if obj.image:
-            if request:
-                return request.build_absolute_uri(obj.image.url)
-            return obj.image.url
-        return None
-    def get_name(self, obj):
-        d = self.get_detail(obj)
-        return getattr(d, "name", None)
-
-    def get_description(self, obj):
-        d = self.get_detail(obj)
-        return getattr(d, "description", None)
-
-    def get_slug(self, obj):
-        d = self.get_detail(obj)
-        return getattr(d, "slug", None)
-    def get_image(self, obj):
-        request = self.context.get('request')
-        if obj.image:
-            return request.build_absolute_uri(obj.image.url)
-        return None
-
-class DirectionSerializer(serializers.ModelSerializer):
-    name = serializers.SerializerMethodField()
-    description = serializers.SerializerMethodField()
-    slug = serializers.SerializerMethodField()
 
     class Meta:
         model = Direction
@@ -82,6 +53,9 @@ class DirectionSerializer(serializers.ModelSerializer):
         lang = self.get_language()
         detail = obj.details.filter(language=lang).first()
         return detail.name if detail else None
+    def get_detail(self, obj):
+        qs = obj.details.all()
+        return get_fallback_detail(qs, self.get_language(), "uz")
 
     def get_description(self, obj):
         lang = self.get_language()
@@ -92,3 +66,82 @@ class DirectionSerializer(serializers.ModelSerializer):
         lang = self.get_language()
         detail = obj.details.filter(language=lang).first()
         return detail.slug if detail else None
+
+    def get_image(self, obj):
+        request = self.context.get("request")
+        if obj.image:
+            return request.build_absolute_uri(obj.image.url) if request else obj.image.url
+        return None
+
+
+class GroupSerializer(serializers.ModelSerializer):
+    name = serializers.SerializerMethodField()
+    description = serializers.SerializerMethodField()
+    slug = serializers.SerializerMethodField()
+    image = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Group
+        fields = ("id", "image", "is_active", "created", "direction", "name", "description", "slug")
+
+    def get_language(self):
+        request = self.context.get("request")
+        if request:
+            return request.headers.get("Accept-Language", "uz")
+        return self.context.get("language", "uz")
+
+    def get_detail(self, obj):
+        qs = obj.details.all()
+        return get_fallback_detail(qs, self.get_language(), "uz")
+
+    def get_name(self, obj):
+        d = self.get_detail(obj)
+        return d.name if d else None
+
+    def get_description(self, obj):
+        d = self.get_detail(obj)
+        return d.description if d else None
+
+    def get_slug(self, obj):
+        d = self.get_detail(obj)
+        return d.slug if d else None
+
+    def get_image(self, obj):
+        request = self.context.get("request")
+        if obj.image:
+            return request.build_absolute_uri(obj.image.url) if request else obj.image.url
+        return None
+
+
+# class MediaSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = Media
+#         fields = "__all__"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

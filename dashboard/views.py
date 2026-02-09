@@ -198,7 +198,7 @@ class GroupViewset(ModelViewSet):
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
 
     filterset_fields = ['is_active', 'direction']
-    search_fields = ['group__name', 'group__description']
+    search_fields = ['details__name', 'details__description']
     ordering_fields = ['id', 'created']
 
     def get_serializer_context(self):
