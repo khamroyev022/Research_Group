@@ -14,17 +14,4 @@ class ResetPasswordSerializer(serializers.Serializer):
     new_password = serializers.CharField(min_length=6)
 
 
-class RegSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = CustomerUser
-        fields = ("username", "email", "password")
-        extra_kwargs = {"password": {"write_only": True}}
 
-    def create(self, validated_data):
-        user = CustomerUser(
-            username=validated_data["username"],
-            email=validated_data["email"],
-        )
-        user.set_password(validated_data["password"])
-        user.save()
-        return user

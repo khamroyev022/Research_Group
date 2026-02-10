@@ -1,4 +1,3 @@
-from tokenize import group
 from rest_framework.exceptions import ValidationError
 from main.models import *
 from rest_framework import serializers
@@ -401,7 +400,7 @@ class AchivmentSerializer(LangMixin, serializers.ModelSerializer):
             "id": instance.id,
             "image": image_url,
             "created_at": instance.created_at,
-            "group": {"id": instance.group.id, "name": get_fallback_detail(instance.group.group, lang).name} if instance.group_id else None,
+            "group": {"id": instance.group.id, "name": get_fallback_detail(instance.group.details, lang).name} if instance.group_id else None,
             "title": tr.title if tr else None,
             "description": tr.description if tr else None,
             "slug": tr.slug if tr else None
@@ -431,6 +430,14 @@ class PartnershipSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         lang = self.get_language()
+
+        group = validated_data.get("group")
+
+        if Partnership.objects.filter(group=group).exists():
+            raise serializers.ValidationError({
+                "group": "Bu group uchun Partnership allaqachon mavjud. Yangi yaratib bo'lmaydi."
+            })
+
         title = validated_data.pop('title')
         description = validated_data.pop('description')
 
@@ -476,7 +483,7 @@ class PartnershipSerializer(serializers.ModelSerializer):
         if instance.image:
             image_url = request.build_absolute_uri(instance.image.url) if request else instance.image.url
 
-        group_detail = get_fallback_detail(instance.group.group, lang)
+        group_detail = get_fallback_detail(instance.group.details, lang)
 
         data = {
             "id": instance.id,
@@ -585,7 +592,6 @@ class ReserchStudentSerializer(serializers.ModelSerializer):
         })
         return data
 
-
 class ResourcesSerializer(serializers.ModelSerializer):
     title = serializers.CharField(write_only=True)
     description = serializers.CharField(write_only=True)
@@ -597,25 +603,28 @@ class ResourcesSerializer(serializers.ModelSerializer):
         fields = ['id', 'group', 'image', 'created_at', 'title', 'description', 'translation_statuses']
 
     def get_language(self):
-        return self.context.get('language', 'uz')
+        request = self.context.get("request")
+        raw = request.headers.get("Accept-Language", "uz") if request else "uz"
+        return (raw.split(",")[0].split("-")[0] or "uz").strip().lower()
 
     def get_translation_statuses(self, obj):
         active_langs = obj.resources.values_list('language', flat=True)
         return [
-            {"code": code, "is_active": True}
+            {"code": code, "is_active": code in active_langs}
             for code, _ in LANGUAGE_CHOICES
-            if code in active_langs
         ]
 
     def create(self, validated_data):
         lang = self.get_language()
         title = validated_data.pop('title')
         description = validated_data.pop('description')
-        if ResourcesDatail.objects.filter(title=title).exists():
-            raise ValidationError({
-                'errors':'Bunday Malumot mavjun yangi yarat olmaysiz'
-            })
+
+        group_obj = validated_data.get("group")
+        if Resources.objects.filter(group=group_obj).exists():
+            raise ValidationError({"group": "Bu group uchun Resources allaqachon mavjud."})
+
         resource = Resources.objects.create(**validated_data)
+
         ResourcesDatail.objects.create(
             resources=resource,
             language=lang,
@@ -628,6 +637,7 @@ class ResourcesSerializer(serializers.ModelSerializer):
         lang = self.get_language()
         title = validated_data.pop('title', None)
         description = validated_data.pop('description', None)
+
         image = validated_data.pop('image', None)
         group = validated_data.pop('group', None)
 
@@ -637,7 +647,7 @@ class ResourcesSerializer(serializers.ModelSerializer):
             instance.group = group
         instance.save()
 
-        if title or description:
+        if title is not None or description is not None:
             ResourcesDatail.objects.update_or_create(
                 resources=instance,
                 language=lang,
@@ -651,13 +661,15 @@ class ResourcesSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         request = self.context.get('request')
         lang = self.get_language()
+
         detail = get_fallback_detail(instance.resources, lang)
 
         image_url = None
         if instance.image:
             image_url = request.build_absolute_uri(instance.image.url) if request else instance.image.url
 
-        group_detail = get_fallback_detail(instance.group.group, lang)
+        # ✅ shu yer tuzatildi
+        group_detail = get_fallback_detail(instance.group.details, lang)
 
         data = {
             "id": instance.id,
@@ -676,7 +688,6 @@ class ResourcesSerializer(serializers.ModelSerializer):
             "slug": detail.slug if detail else None
         })
         return data
-
 
 class NewsActivitiesSerializer(serializers.ModelSerializer):
     title = serializers.CharField(write_only=True)
@@ -914,7 +925,6 @@ class SliderGroupSerializer(serializers.ModelSerializer):
         if detail:
             if title is not None:
                 detail.title = title
-            # til bo‘yicha shu detail aktiv bo‘lsin
             detail.is_avtive = True
             detail.save()
         elif title is not None:
@@ -936,7 +946,7 @@ class SliderGroupSerializer(serializers.ModelSerializer):
             image_url = request.build_absolute_uri(instance.image.url) if request else instance.image.url
 
         slider_detail = get_fallback_detail(instance.details, lang)
-        group_detail = get_fallback_detail(instance.group.group, lang)  # sizda GroupDetail related_name='group'
+        group_detail = get_fallback_detail(instance.group.details, lang)
 
         data = {
             "id": str(instance.id),

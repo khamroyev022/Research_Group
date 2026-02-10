@@ -113,17 +113,71 @@ class GroupSerializer(serializers.ModelSerializer):
         return None
 
 
-# class MediaSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = Media
-#         fields = "__all__"
+class MediaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Media
+        fields = "__all__"
 
 
 
+class SlidergroupSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+    class Meta:
+        model = SliderGroup
+        fields = "__all__"
+    def get_image(self, obj):
+        request = self.context.get("request")
+        if obj:
+            return request.build_absolute_uri(obj.image.url) if request else obj.image.url
+        return None
 
+class AchivmentSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+    class Meta:
+        model = Achivment
+        fields = "id", "image",
+    def get_image(self, obj):
+        request = self.context.get("request")
+        if obj:
+            return request.build_absolute_uri(obj.image.url) if request else obj.image.url
+        return None
 
+class PartnerShipSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+    class Meta:
+        model = Partnership
+        fields = "id", "image","created_at",
 
+    def get_image(self, obj):
+        request = self.context.get("request")
+        if obj:
+            return request.build_absolute_uri(obj.image.url) if request else obj.image.url
+        return None
 
+class StudentSerachSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+    class Meta:
+        model = ReserchStudent
+        fields = "id", "image",'created_at'
+
+    def get_image(self, obj):
+        request = self.context.get("request")
+        if obj:
+            return request.build_absolute_uri(obj.image.url) if request else obj.image.url
+
+        return None
+
+class ResourcesSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+    class Meta:
+        model = Resources
+        fields = "id", "image",
+
+    def get_image(self, obj):
+        request = self.context.get("request")
+        if obj:
+            return request.build_absolute_uri(obj.image.url) if request else obj.image.url
+        return None
 
 
 

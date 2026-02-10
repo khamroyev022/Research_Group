@@ -29,7 +29,6 @@ class GroupDetailSerialzier(serializers.ModelSerializer):
 
 
 class GroupSerializer(serializers.ModelSerializer):
-    # WRITE
     name = serializers.CharField(write_only=True, required=False, allow_blank=True)
     description = serializers.CharField(write_only=True, required=False, allow_blank=True)
 
@@ -54,8 +53,7 @@ class GroupSerializer(serializers.ModelSerializer):
         ]
 
     def get_language(self):
-        # ViewSet'da context['language'] berilsa ishlaydi,
-        # aks holda request headerdan ham olamiz (xavfsizroq)
+
         request = self.context.get("request")
         if request:
             return request.headers.get("Accept-Language", self.context.get("language", "uz"))

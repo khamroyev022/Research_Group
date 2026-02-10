@@ -5,12 +5,19 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="273bf775-8372-454a-8207-178083c192e3" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/main/Pagnitions.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dashboard/migrations/0001_initial.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dashboard/serializers/Restartpasswordserializer.py" beforeDir="false" afterPath="$PROJECT_DIR$/dashboard/serializers/Restartpasswordserializer.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/dashboard/serializers/group_serializer.py" beforeDir="false" afterPath="$PROJECT_DIR$/dashboard/serializers/group_serializer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dashboard/serializers/login_serialzer.py" beforeDir="false" afterPath="$PROJECT_DIR$/dashboard/serializers/login_serialzer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dashboard/serializers/serializer.py" beforeDir="false" afterPath="$PROJECT_DIR$/dashboard/serializers/serializer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dashboard/urls.py" beforeDir="false" afterPath="$PROJECT_DIR$/dashboard/urls.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/dashboard/views.py" beforeDir="false" afterPath="$PROJECT_DIR$/dashboard/views.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/main/migrations/0001_initial.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/main/migrations/0002_alter_group_image_alter_groupdetail_group.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/main/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/main/models.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main/serializer.py" beforeDir="false" afterPath="$PROJECT_DIR$/main/serializer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/main/tests.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/main/urls.py" beforeDir="false" afterPath="$PROJECT_DIR$/main/urls.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main/views.py" beforeDir="false" afterPath="$PROJECT_DIR$/main/views.py" afterDir="false" />
     </list>

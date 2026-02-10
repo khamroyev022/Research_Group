@@ -5,16 +5,15 @@ class RegSerializer(serializers.ModelSerializer):
     password = serializers.CharField(
         write_only=True,
         min_length=6,
-        style={'input_type': 'password'}
     )
 
     class Meta:
         model = CustomerUser
-        fields = ['id', 'first_name', 'last_name','username', 'password']
+        fields = ['id', 'first_name', 'last_name','username', 'password',]
 
     def create(self, validated_data):
-        password = validated_data.pop('password')  # 🔑 parolni ajratib olamiz
+        password = validated_data.pop('password')
         user = CustomerUser(**validated_data)
-        user.set_password(password)  # 🔐 hash
+        user.set_password(password)
         user.save()
         return user

@@ -467,9 +467,9 @@ class SliderGroupDetail(models.Model):
 
 class GroupMedia(models.Model):
     id = models.UUIDField(primary_key=True, editable=True, default=uuid.uuid4)
-    image = models.ImageField(upload_to = 'media/groupmedia/')
+    image = models.ImageField(upload_to = 'media/group-media/')
     video_url = models.URLField()
-    group = models.ForeignKey(Group,on_delete=models.CASCADE)
+    group = models.ForeignKey(Group,on_delete=models.CASCADE,related_name='media')
     created_at = models.DateTimeField(auto_now_add=True)
 
 

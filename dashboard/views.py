@@ -151,20 +151,18 @@ def reset_password(request):
     return Response({"success": "Parol yangilandi"}, status=status.HTTP_200_OK)
 
 
-# @api_view(['POST'])
-# @permission_classes([AllowAny])
-# def register(request):
-#
-#     ser = RegSerializer(data=request.data)
-#
-#     if ser.is_valid():
-#         user = ser.save()
-#         return Response({
-#                 'success': 'foydalanuvchi yaratildi',
-#                 'user_id': user.id,
-#                 'username': user.username
-#             },status=status.HTTP_201_CREATED)
-#     return Response(ser.errors,status=status.HTTP_400_BAD_REQUEST)
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def register(request):
+    ser = RegSerializer(data=request.data)
+    if ser.is_valid():
+        user = ser.save()
+        return Response({
+                'success': 'foydalanuvchi yaratildi',
+                'user_id': user.id,
+                'username': user.username
+            },status=status.HTTP_201_CREATED)
+    return Response(ser.errors,status=status.HTTP_400_BAD_REQUEST)
 
 class DirectionCRUDViews(ModelViewSet):
     queryset = Direction.objects.all()
@@ -370,17 +368,18 @@ class AchivmentViewSet(ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         group_id = request.query_params.get("group_id")
-
         qs = self.filter_queryset(self.get_queryset())
 
         if group_id:
             obj = qs.order_by("-created_at").first()
             if not obj:
-                return Response({"detail": "Topilmadi"}, status=status.HTTP_404_NOT_FOUND)
+                return Response(
+                    {"group_id": group_id, "achivment": None},
+                    status=status.HTTP_200_OK
+                )
 
             serializer = self.get_serializer(obj)
             return Response(serializer.data, status=status.HTTP_200_OK)
-
 
         serializer = self.get_serializer(qs, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -390,32 +389,37 @@ class PartnershipViewSet(ModelViewSet):
     serializer_class = PartnershipSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = None
-    parser_classes = [MultiPartParser, FormParser]
 
     def get_queryset(self):
-        queryset = super().get_queryset()
+        qs = super().get_queryset()
         group_id = self.request.query_params.get("group_id")
         if group_id:
-            return queryset.filter(group_id=group_id.rstrip("/"))
-        return queryset
+            group_id = group_id.strip().rstrip("/")
+            qs = qs.filter(group_id=group_id)
+        return qs
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        context['language'] = self.request.headers.get('Accept-Language', 'uz')
+        # request DRF contextda bor bo'ladi, lekin qoldiramiz
+        context["request"] = self.request
+        context["language"] = self.request.headers.get("Accept-Language", "uz")
         return context
 
-
     def list(self, request, *args, **kwargs):
+        group_id = request.query_params.get("group_id")
         qs = self.filter_queryset(self.get_queryset())
 
-        if qs.count()==1:
+        if group_id:
             obj = qs.first()
+            if not obj:
+                return Response(
+                    {"group_id": group_id, "partnership": None},
+                    status=status.HTTP_200_OK
+                )
             serializer = self.get_serializer(obj)
             return Response(serializer.data, status=status.HTTP_200_OK)
-        if qs.count()== 0:
-            return Response({"error": "Topilmadi"}, status=status.HTTP_404_NOT_FOUND)
 
-        serializer = self.get_serializer(qs,many=True)
+        serializer = self.get_serializer(qs, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class ReserchStudentViewSet(ModelViewSet):
@@ -445,31 +449,37 @@ class ResourcesViewSet(ModelViewSet):
     parser_classes = [MultiPartParser, FormParser]
 
     def get_queryset(self):
-        queryset = super().get_queryset()
+        qs = super().get_queryset()
         group_id = self.request.query_params.get("group_id")
         if group_id:
-            return queryset.filter(group_id=group_id.rstrip("/"))
-        return queryset
+            group_id = group_id.strip().rstrip("/")
+            qs = qs.filter(group_id=group_id)
+        return qs
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        context['language'] = self.request.headers.get('Accept-Language', 'uz')
+        context["request"] = self.request
+        context["language"] = self.request.headers.get("Accept-Language", "uz")
         return context
 
     def list(self, request, *args, **kwargs):
+        group_id = request.query_params.get("group_id")
         qs = self.filter_queryset(self.get_queryset())
 
-
-        if qs.count() == 1:
+        if group_id:
             obj = qs.first()
+            if not obj:
+                return Response(
+                    {"group_id": group_id, "resources": None},
+                    status=status.HTTP_200_OK
+                )
             serializer = self.get_serializer(obj)
-            return Response(serializer.data)
+            return Response(serializer.data, status=status.HTTP_200_OK)
 
-        if qs.count() == 0:
-            return Response({"detail": "Topilmadi"}, status=status.HTTP_404_NOT_FOUND)
-
+        # group_id bo'lmasa — list
         serializer = self.get_serializer(qs, many=True)
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 class NewsActivitiesViewSet(ModelViewSet):
     queryset = NewsActivities.objects.all()
@@ -627,9 +637,19 @@ def statictika(request):
     },status=status.HTTP_200_OK)
 
 
-
-
-
+@api_view(['PATCH'])
+@permission_classes([AllowAny])
+def email_update(request,pk):
+    try :
+        user = CustomerUser.objects.get(pk=pk)
+    except CustomerUser.DoesNotExist:
+        return Response({
+            "error": "User not found"
+        },status=status.HTTP_404_NOT_FOUND)
+    ser = RegSerializer(user, data=request.data, partial=True)
+    if ser.is_valid(raise_exception=True):
+        ser.save()
+        return Response(ser.data)
 
 
 
