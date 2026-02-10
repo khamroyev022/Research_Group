@@ -1,9 +1,12 @@
+from django.contrib.admin.templatetags.admin_list import pagination
 from django.template.defaultfilters import title
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
-from .Pagnitions import DefaultPagination
+from rest_framework.status import HTTP_200_OK
+from rest_framework.views import APIView
+from .Pagnitions import DefaultPagination,GroupPaginatsion
 from .serializer import *
 from rest_framework import status
 from  rest_framework.viewsets import ReadOnlyModelViewSet
@@ -19,8 +22,6 @@ def direction_list_list(request):
         "data": ser.data
     }, status=status.HTTP_200_OK)
 
-
-
 class GroupViewSet(ReadOnlyModelViewSet):
     queryset = Group.objects.all().select_related("direction").prefetch_related("details")
     serializer_class = GroupSerializer
@@ -29,10 +30,6 @@ class GroupViewSet(ReadOnlyModelViewSet):
 
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["direction"]
-
-
-
-
 
 class MediaGroupViewSet(ReadOnlyModelViewSet):
     queryset = GroupMedia.objects.all().select_related("group").prefetch_related("details")
@@ -43,13 +40,12 @@ class MediaGroupViewSet(ReadOnlyModelViewSet):
     filterset_fields = ["group"]
     lookup_field = "slug"
 
-
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def home_group_list(request):
     group_id = request.query_params.get("group_id")
     lang = request.headers.get("Accept-Language", "uz")
-
+    #Slider_ser
     slider_qs = SliderGroup.objects.all().select_related("group")
     if group_id:
         group_id = group_id.strip().rstrip("/")
@@ -135,10 +131,64 @@ def home_group_list(request):
         }
     }, status=status.HTTP_200_OK)
 
+class NewshomeView(APIView):
+    permission_classes = [AllowAny]
+    pagination_class = GroupPaginatsion
 
+    def get(self, request):
+        group_id = request.query_params.get("group_id")
 
+        if not group_id:
+            return Response({"error": "Parametr berish shart"}, status=400)
 
+        group_id = group_id.strip().rstrip("/")
 
+        qs = NewsActivities.objects.filter(group_id=group_id)
 
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(qs, request, view=self)
 
+        ser = NewSerializerHome(page, many=True, context={"request": request})
+        return paginator.get_paginated_response(ser.data)
 
+class PublicationView(APIView):
+    permission_classes = [AllowAny]
+    pagination_class = GroupPaginatsion
+
+    def get(self, request):
+        group_id = request.query_params.get("group_id")
+
+        if not group_id:
+            return Response({"error": "group_id param berilmadi"}, status=400)
+
+        group_id = group_id.strip().rstrip("/")
+
+        qs = Publication.objects.filter(group_id=group_id)
+
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(qs, request, view=self)
+
+        ser = PublicationSerializerhome(page, many=True, context={"request": request})
+        return paginator.get_paginated_response(ser.data)
+
+class ConferensiaViews(APIView):
+    permission_classes = [AllowAny]
+    pagination_class = GroupPaginatsion
+
+    def  get(self, request):
+        group_id = request.query_params.get("group_id")
+
+        if not group_id:
+            return Response({"error": "group_id param berilmadi"}, status=400)
+
+        group_id = group_id.strip().rstrip("/")
+        qs = ConferencesSeminars.objects.filter(group_id=group_id)
+        if not qs :
+            return Response({
+                'errors':'Malumot topilmadi'
+            },status=status.HTTP_404_NOT_FOUND)
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(qs, request, view=self)
+
+        ser = ConferensiahomeSerializer(qs,many=True, context={'request':request})
+        return paginator.get_paginated_response(ser.data)

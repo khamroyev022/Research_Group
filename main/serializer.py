@@ -1,7 +1,8 @@
 from msilib.schema import Media
-from os import name
-
+from django.templatetags.i18n import language
 from rest_framework import serializers
+from rest_framework.response import Response
+from urllib3 import request
 from .models import *
 
 def get_fallback_detail(qs, lang, default_lang="uz"):
@@ -118,8 +119,6 @@ class MediaSerializer(serializers.ModelSerializer):
         model = Media
         fields = "__all__"
 
-
-
 class SlidergroupSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
     class Meta:
@@ -179,11 +178,96 @@ class ResourcesSerializer(serializers.ModelSerializer):
             return request.build_absolute_uri(obj.image.url) if request else obj.image.url
         return None
 
+class NewSerializerHome(serializers.ModelSerializer):
+    title = serializers.SerializerMethodField()
+    slug = serializers.SerializerMethodField()
+    image = serializers.SerializerMethodField()
+    class Meta:
+        model = NewsActivities
+        fields = '__all__'
+
+    def get_language(self):
+        request = self.context.get("request")
+        return request.header.get("Accept-Language", "uz") if request else "uz"
+
+    def get_translation(self,obj):
+        lang = self.get_language()
+        return get_fallback_detail(obj.newsactive,lang)
+
+    def get_title(self, obj):
+        tr = self.get_translation(obj)
+        return tr.title if tr else None
+
+    def get_description(self, obj):
+        tr = self.get_language(obj)
+        return tr.description if tr else None
+
+    def get_slug(self, obj):
+        tr = self.get_translation(obj)
+        return tr.slug if tr else None
+
+    def get_image(self, obj):
+        request = self.context.get("request")
+        if obj.image and request:
+            return request.build_absolute_uri(obj.image.url)
+        return None
 
 
+class PublicationSerializerhome(serializers.ModelSerializer):
+    title = serializers.SerializerMethodField()
+    topic = serializers.SerializerMethodField()
+    slug = serializers.SerializerMethodField()
+    topic = serializers.SerializerMethodField()
 
+    class Meta:
+        model = Publication
+        fields = '__all__'
 
+    def get_language(self):
+        request = self.context.get('language')
+        return request.header.get("Accept-Language", "uz") if request else "uz"
 
+    def get_translation(self,obj):
+        lang = self.get_language()
+        return get_fallback_detail(obj.details,lang)
+
+    def  get_name(self,obj):
+        tr = self.get_translation(obj)
+        return tr.title if tr else None
+    def get_topic(self,obj):
+        tr = self.get_translation(obj)
+        return tr.topic if tr else None
+    def get_slug(self,obj):
+        tr = self.get_translation(obj)
+        return tr.topic if tr else None
+
+class ConferensiahomeSerializer(serializers.ModelSerializer):
+    title = serializers.SerializerMethodField()
+    description = serializers.SerializerMethodField()
+    slug = serializers.SerializerMethodField()
+    class Meta:
+        model = ConferencesSeminars
+        fields = '__all__'
+
+    def get_language(self):
+        request = self.context.get('language')
+        return request.header.get("Accept-Language", "uz") if request else "uz"
+
+    def get_translation(self, obj):
+        lang = self.get_language()
+        return get_fallback_detail(obj.conferencesseminars, lang)
+
+    def get_title(self, obj):
+        tr = self.get_translation(obj)
+        return tr.title if tr else None
+
+    def get_description(self, obj):
+        tr = self.get_translation(obj)
+        return tr.topic if tr else None
+
+    def get_slug(self, obj):
+        tr = self.get_translation(obj)
+        return tr.topic if tr else None
 
 
 
