@@ -59,7 +59,7 @@ class GroupShortSerializer(LangMixin, serializers.ModelSerializer):
     def get_name(self, obj):
         lang = self.get_language()
 
-        tr = get_fallback_detail(obj.group, lang)
+        tr = get_fallback_detail(obj.details, lang)
         return tr.name if tr else None
 
 class PublicationSerializer(LangMixin, serializers.ModelSerializer):
@@ -173,42 +173,60 @@ class PublicationSerializer(LangMixin, serializers.ModelSerializer):
 from main.models import *
 from rest_framework import serializers
 
+
 class MemberDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = MemberDetail
-        fields = ['id', 'full_name', 'affiliation', 'about', 'slug']
+        fields = ['id', 'full_name', 'affiliation', 'about', 'slug', 'language']
+
 
 class MemberSerializer(serializers.ModelSerializer):
-    full_name = serializers.CharField(write_only=True)
-    affiliation = serializers.CharField(write_only=True)
-    about = serializers.CharField(write_only=True)
-    translation_statuses = serializers.SerializerMethodField()
+    university = serializers.PrimaryKeyRelatedField(
+        queryset=University.objects.all(),
+        required=False,
+        allow_null=True
+    )
+    country = serializers.PrimaryKeyRelatedField(
+        queryset=Country.objects.all(),
+        required=True
+    )
+    group = serializers.PrimaryKeyRelatedField(
+        queryset=Group.objects.all(),
+        required=True
+    )
+
+    full_name = serializers.CharField(write_only=True, required=True)
+    affiliation = serializers.CharField(write_only=True, required=False, allow_blank=True, allow_null=True)
+    about = serializers.CharField(write_only=True, required=False, allow_blank=True, allow_null=True)
+
+    translation_statuses = serializers.SerializerMethodField(read_only=True)
+
     status = serializers.ChoiceField(choices=STATUS_CHOISE, required=False)
+
     class Meta:
         model = Member
         fields = [
-            'id', 'email', 'phone', 'image', 'university', 'group',
+            'id', 'email', 'phone', 'image',
+            'university', 'country', 'group',
             'orcid', 'google_scholar', 'scopus',
             'full_name', 'affiliation', 'about',
-            'translation_statuses','status'
+            'translation_statuses', 'status'
         ]
 
     def get_language(self):
-        return self.context.get('language', 'uz')
+        request = self.context.get("request")
+        return request.headers.get("Accept-Language", "uz") if request else "uz"
 
     def get_translation_statuses(self, obj):
         active_langs = obj.details.values_list('language', flat=True)
-        return [
-            {"code": code, "is_active": True}
-            for code, _ in LANGUAGE_CHOICES
-            if code in active_langs
-        ]
+        return [{"code": code, "is_active": code in active_langs} for code, _ in LANGUAGE_CHOICES]
 
     def create(self, validated_data):
         lang = self.get_language()
+
         full_name = validated_data.pop('full_name')
-        affiliation = validated_data.pop('affiliation')
-        about = validated_data.pop('about')
+        affiliation = validated_data.pop('affiliation', None)
+        about = validated_data.pop('about', None)
 
         member = Member.objects.create(**validated_data)
 
@@ -219,43 +237,47 @@ class MemberSerializer(serializers.ModelSerializer):
             affiliation=affiliation,
             about=about
         )
-
         return member
 
     def update(self, instance, validated_data):
         lang = self.get_language()
+
         full_name = validated_data.pop('full_name', None)
         affiliation = validated_data.pop('affiliation', None)
         about = validated_data.pop('about', None)
-        image = validated_data.get('image', None)
-        if image is not None:
-            instance.image = image
-            instance.save(update_fields=['image'])
 
-        if full_name or affiliation or about:
+        for field in ['email', 'phone', 'orcid', 'google_scholar', 'scopus']:
+            if field in validated_data:
+                setattr(instance, field, validated_data[field])
+
+        if 'image' in validated_data:
+            instance.image = validated_data['image']
+
+        request = self.context.get('request')
+        if 'status' in validated_data:
+            if request and request.user and request.user.is_staff:
+                instance.status = validated_data['status']
+
+        if 'university' in validated_data:
+            instance.university = validated_data['university']
+        if 'country' in validated_data:
+            instance.country = validated_data['country']
+        if 'group' in validated_data:
+            instance.group = validated_data['group']
+
+        instance.save()
+
+        if full_name is not None or affiliation is not None or about is not None:
             MemberDetail.objects.update_or_create(
                 member=instance,
                 language=lang,
                 defaults={
-                    'full_name': full_name,
+                    'full_name': full_name if full_name is not None else "",
                     'affiliation': affiliation,
                     'about': about
                 }
             )
 
-
-        for field in ['email', 'phone', 'orcid', 'google_scholar', 'scopus','status']:
-            if field in validated_data:
-                setattr(instance, field, validated_data[field])
-        request = self.context.get('request')
-        if 'status' in validated_data and (not request or not request.user.is_staff):
-            validated_data.pop('status')
-        if 'university' in validated_data:
-            instance.university = validated_data['university']
-        if 'group' in validated_data:
-            instance.group = validated_data['group']
-
-        instance.save()
         return instance
 
     def to_representation(self, instance):
@@ -263,50 +285,55 @@ class MemberSerializer(serializers.ModelSerializer):
         lang = self.get_language()
 
         detail = get_fallback_detail(instance.details, lang)
-        university_detail = get_fallback_detail(instance.university.details, lang)
-        group_detail = get_fallback_detail(instance.group.group, lang)
 
-        # Image URL
+        university_detail = None
+        if instance.university:
+            university_detail = get_fallback_detail(instance.university.details, lang)
+
+        country_detail = None
+        if instance.country:
+            country_detail = get_fallback_detail(instance.country.details, lang)
+
+        group_detail = None
+        if instance.group:
+            group_detail = get_fallback_detail(instance.group.details, lang)
+
         image_url = None
         if instance.image:
             image_url = request.build_absolute_uri(instance.image.url) if request else instance.image.url
 
-        data = {
-            "id": instance.id,
+        return {
+            "id": str(instance.id),
             "email": instance.email,
             "phone": instance.phone,
             "image": image_url,
             "orcid": instance.orcid,
             "google_scholar": instance.google_scholar,
             "scopus": instance.scopus,
-            "translation_statuses": self.get_translation_statuses(instance),
             "status": instance.status,
-            "university": {
-                "id": instance.university.id,
+            "translation_statuses": self.get_translation_statuses(instance),
+
+            "university": None if not instance.university else {
+                "id": str(instance.university_id),
                 "name": university_detail.name if university_detail else None
             },
-            "group": {
-                "id": instance.group.id,
+
+            "country": None if not instance.country else {
+                "id": str(instance.country_id),
+                "name": country_detail.name if country_detail else None
+            },
+
+            "group": None if not instance.group else {
+                "id": str(instance.group_id),
                 "name": group_detail.name if group_detail else None
-            }
+            },
+
+            "full_name": detail.full_name if detail else None,
+            "affiliation": detail.affiliation if detail else None,
+            "about": detail.about if detail else None,
+            "slug": detail.slug if detail else None,
         }
 
-        if detail:
-            data.update({
-                "full_name": detail.full_name,
-                "affiliation": detail.affiliation,
-                "about": detail.about,
-                "slug": detail.slug
-            })
-        else:
-            data.update({
-                "full_name": None,
-                "affiliation": None,
-                "about": None,
-                "slug": None
-            })
-
-        return data
 
 class MemberSerializer1(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
@@ -572,7 +599,7 @@ class ReserchStudentSerializer(serializers.ModelSerializer):
         if instance.image:
             image_url = request.build_absolute_uri(instance.image.url) if request else instance.image.url
 
-        group_detail = get_fallback_detail(instance.group.group, lang)
+        group_detail = get_fallback_detail(instance.group.details, lang)
 
         data = {
             "id": instance.id,
@@ -668,7 +695,6 @@ class ResourcesSerializer(serializers.ModelSerializer):
         if instance.image:
             image_url = request.build_absolute_uri(instance.image.url) if request else instance.image.url
 
-        # ✅ shu yer tuzatildi
         group_detail = get_fallback_detail(instance.group.details, lang)
 
         data = {
@@ -762,7 +788,7 @@ class NewsActivitiesSerializer(serializers.ModelSerializer):
         if instance.image:
             image_url = request.build_absolute_uri(instance.image.url) if request else instance.image.url
 
-        group_detail = get_fallback_detail(instance.group.group, lang)
+        group_detail = get_fallback_detail(instance.group.details, lang)
 
         data = {
             "id": instance.id,
@@ -848,7 +874,7 @@ class ConferencesSeminarsSerializer(serializers.ModelSerializer):
         lang = self.get_language()
         detail = get_fallback_detail(instance.conferencesseminars, lang)
 
-        group_detail = get_fallback_detail(instance.group.group, lang)
+        group_detail = get_fallback_detail(instance.group.details, lang)
 
         data = {
             "id": instance.id,

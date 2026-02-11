@@ -167,7 +167,7 @@ def register(request):
 class DirectionCRUDViews(ModelViewSet):
     queryset = Direction.objects.all()
     serializer_class = DirectionSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     pagination_class = None
     search_fields =['name']
     def get_serializer_context(self):
@@ -178,19 +178,19 @@ class DirectionCRUDViews(ModelViewSet):
 class CountryViewSet(viewsets.ModelViewSet):
     queryset = Country.objects.all()
     serializer_class = CountrySerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     pagination_class = DefaultPagination
     search_fields =['name','description']
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        context['language'] = self.request.headers.get('Accept-Language', 'uz')  
+        context['language'] = self.request.headers.get('Accept-Language', 'uz')
         return context
 
 class GroupViewset(ModelViewSet):
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     pagination_class = DefaultPagination
     parser_classes = [MultiPartParser, FormParser]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -207,7 +207,7 @@ class GroupViewset(ModelViewSet):
 class UniversityViews(ModelViewSet):
     queryset = University.objects.all()
     serializer_class = UniversitySerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     pagination_class = DefaultPagination
     def get_serializer_context(self):
         contex = super().get_serializer_context()
@@ -215,7 +215,7 @@ class UniversityViews(ModelViewSet):
         return contex
 
 @api_view(["PATCH", "GET"])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def groupactiveviews(request, group_id):
     try:
         group = Group.objects.get(id=group_id)
@@ -241,8 +241,9 @@ def groupactiveviews(request, group_id):
 class MemberViewset(ModelViewSet):
     queryset = Member.objects.all()
     serializer_class = MemberSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     pagination_class = DefaultPagination
+    parser_classes = [MultiPartParser, FormParser]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = MemberFilter
     search_fields = [
@@ -263,7 +264,7 @@ class MemberViewset(ModelViewSet):
 class PublicationViewSet(ModelViewSet):
     queryset = Publication.objects.all().order_by('created_at')
     serializer_class = PublicationSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     pagination_class = DefaultPagination
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -278,7 +279,7 @@ class PublicationViewSet(ModelViewSet):
 class PublishViewset(ModelViewSet):
     queryset = Publisher.objects.all()
     serializer_class = PublisherSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     pagination_class = DefaultPagination
 
     def get_serializer_context(self):
@@ -289,7 +290,7 @@ class PublishViewset(ModelViewSet):
 class ProjectsViewSet(ModelViewSet):
     queryset = Projects.objects.all()
     serializer_class = ProjectsSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     pagination_class = DefaultPagination
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = ProjectsFilter
@@ -308,7 +309,7 @@ class ProjectsViewSet(ModelViewSet):
 class InterestsViewSet(ModelViewSet):
     queryset = Interests.objects.all()
     serializer_class = InterestsSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     pagination_class = None
 
     def get_serializer_context(self):
@@ -532,7 +533,7 @@ class ConferencesSeminarsViewSet(ModelViewSet):
 class SliderGroupViewSet(ModelViewSet):
     queryset = SliderGroup.objects.all()
     serializer_class = SliderGroupSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     pagination_class = DefaultPagination
     parser_classes = [MultiPartParser, FormParser]
 
@@ -551,7 +552,7 @@ class SliderGroupViewSet(ModelViewSet):
 class GroupMediaViewSet(ModelViewSet):
     queryset = GroupMedia.objects.select_related("group").all().order_by("-id")
     serializer_class = MediaSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     pagination_class = DefaultPagination
     parser_classes = [MultiPartParser, FormParser]
 
@@ -605,7 +606,7 @@ class GroupMediaViewSet(ModelViewSet):
 class SosialLinkViewset(ModelViewSet):
     queryset = SosialLink.objects.all()
     serializer_class = SocialLinkSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     pagination_class = None
     def get_queryset(self):
         qs = super().get_queryset()

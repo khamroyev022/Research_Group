@@ -1,11 +1,8 @@
 from rest_framework import serializers
 from main.models import Group, GroupDetail, Direction, LANGUAGE_CHOICES
-from .direction_serializer import DirectionDetailSerializer
-
 
 def get_active_fallback_detail(qs, lang, default_lang="uz"):
     model = qs.model
-
     has_is_active = any(f.name == "is_active" for f in model._meta.fields)
     qs_active = qs.filter(is_active=True) if has_is_active else qs
 
@@ -53,19 +50,14 @@ class GroupSerializer(serializers.ModelSerializer):
         ]
 
     def get_language(self):
-
         request = self.context.get("request")
         if request:
             return request.headers.get("Accept-Language", self.context.get("language", "uz"))
         return self.context.get("language", "uz")
 
     def get_translation_statuses(self, obj):
-        # ✅ obj.details (related_name='details')
-        active_langs = obj.details.filter(is_active=True).values_list("language", flat=True)
-        return [
-            {"code": code, "is_active": code in active_langs}
-            for code, _ in LANGUAGE_CHOICES
-        ]
+        active_langs = set(obj.details.filter(is_active=True).values_list("language", flat=True))
+        return [{"code": code, "is_active": code in active_langs} for code, _ in LANGUAGE_CHOICES]
 
     def create(self, validated_data):
         lang = self.get_language()
@@ -77,14 +69,10 @@ class GroupSerializer(serializers.ModelSerializer):
 
         if direction is None:
             raise serializers.ValidationError({"direction": "direction majburiy"})
-
         if not name:
             raise serializers.ValidationError({"name": "name majburiy"})
 
-        group = Group.objects.create(
-            image=image,
-            direction=direction,
-        )
+        group = Group.objects.create(image=image, direction=direction)
 
         GroupDetail.objects.create(
             group=group,
@@ -93,7 +81,6 @@ class GroupSerializer(serializers.ModelSerializer):
             description=description,
             is_active=True
         )
-
         return group
 
     def update(self, instance, validated_data):
@@ -121,12 +108,10 @@ class GroupSerializer(serializers.ModelSerializer):
         if changed_group:
             instance.save()
 
-        # Detailga tegilmasa, shu yerda chiqib ketadi
         if name is None and description is None:
             return instance
 
         detail = GroupDetail.objects.filter(group=instance, language=lang).first()
-
         if not detail:
             GroupDetail.objects.create(
                 group=instance,
@@ -150,18 +135,29 @@ class GroupSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         request = self.context.get("request")
+        lang = self.get_language()
 
+        # ✅ Group image
         image_url = None
         if instance.image and instance.image.name:
             image_url = request.build_absolute_uri(instance.image.url) if request else instance.image.url
 
-        lang = self.get_language()
-
-        # ✅ instance.details (related_name='details')
+        # ✅ Group detail
         detail = get_active_fallback_detail(instance.details.all(), lang)
 
-        data = {
-            "id": str(instance.id),
+        # ✅ Direction detail (lekin ID Directionniki bo‘ladi)
+        direction_payload = None
+        if instance.direction:
+            d_detail = get_active_fallback_detail(instance.direction.details.all(), lang)
+            direction_payload = {
+                "id": str(instance.direction.id),  # ✅ Direction ID (siz xohlagan)
+                "name": d_detail.name if d_detail else None,
+                "description": d_detail.description if d_detail else None,
+                "slug": d_detail.slug if d_detail else None,
+            }
+
+        return {
+            "id": str(instance.id),  # ✅ Group ID (to‘g‘ri)
             "image": image_url,
             "is_active": instance.is_active,
             "translation_statuses": self.get_translation_statuses(instance),
@@ -170,15 +166,5 @@ class GroupSerializer(serializers.ModelSerializer):
             "description": detail.description if detail else None,
             "slug": detail.slug if detail else None,
 
-            "direction": None
+            "direction": direction_payload
         }
-
-        if instance.direction:
-            # DirectionDetail related_name='details' ekan
-            direction_detail = get_active_fallback_detail(instance.direction.details.all(), lang)
-            data["direction"] = (
-                DirectionDetailSerializer(direction_detail, context={"request": request}).data
-                if direction_detail else {"id": str(instance.direction.id)}
-            )
-
-        return data

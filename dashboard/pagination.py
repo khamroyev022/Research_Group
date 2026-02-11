@@ -22,3 +22,4 @@ class DefaultPagination(PageNumberPagination):
             },
             "data": data
         })
+

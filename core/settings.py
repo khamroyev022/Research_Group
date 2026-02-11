@@ -151,3 +151,9 @@ SIMPLE_JWT = {
     "ALGORITHM": "HS256",
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
+# 50 MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024
+
+# 50 MB (upload file limit)
+FILE_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024
+
