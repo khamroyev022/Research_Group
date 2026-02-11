@@ -16,5 +16,7 @@ urlpatterns = [
     path('group-conferinsia/',ConferensiaViews.as_view()),
     path('group-members/', MemberByGroupView.as_view()),
     path('group-interest/', InterestView.as_view()),
+    path("projects/", ProjectsListAPIView.as_view()),
+
     path('',include(router.urls)),
 ]

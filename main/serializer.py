@@ -1,12 +1,10 @@
 from msilib.schema import Media
-from pyexpat import model
 
-from django.templatetags.i18n import language
+from django.contrib.postgres import serializers
 from rest_framework import serializers
-from rest_framework.response import Response
 from urllib3 import request
-from .models import *
 
+from .models import *
 def get_fallback_detail(qs, lang, default_lang="uz"):
     if not qs.exists():
         return None
@@ -360,7 +358,7 @@ class MemberGetSerializer(serializers.ModelSerializer):
         lang = self.get_language()
         tr = get_fallback_detail(obj.country.details, lang)
         return {
-            "id": str(obj.country_id),
+            "id": str(obj.country),
             "name": tr.name if tr else None
         }
 
@@ -451,4 +449,84 @@ class PublicationHomeSerializer(serializers.ModelSerializer):
         return {"id": str(obj.publisher_id), "name": obj.publisher.name}
 
 
+class ProjectsSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+    title = serializers.SerializerMethodField()
+    topic = serializers.SerializerMethodField()
+    description = serializers.SerializerMethodField()
+    slug = serializers.SerializerMethodField()
 
+    group = serializers.SerializerMethodField()
+    sponsor_university = serializers.SerializerMethodField()
+    sponsor_country = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Projects
+        fields = (
+            "id",
+            "start_date",
+            "end_date",
+            "image",
+            "amount",
+            "status",
+            "group",
+            "sponsor_university",
+            "sponsor_country",
+            "title",
+            "topic",
+            "description",
+            "slug",
+        )
+
+    def get_language(self):
+        request = self.context.get("request")
+        raw = request.headers.get("Accept-Language", "uz") if request else "uz"
+        return (raw.split(",")[0].split("-")[0] or "uz").strip().lower()
+
+    def get_translation(self, obj):
+        return get_fallback_detail(obj.translations, self.get_language())
+
+    def get_image(self, obj):
+        request = self.context.get("request")
+        if obj.image:
+            return request.build_absolute_uri(obj.image.url)
+        return None
+
+    def get_title(self, obj):
+        tr = self.get_translation(obj)
+        return tr.title if tr else None
+
+    def get_topic(self, obj):
+        tr = self.get_translation(obj)
+        return tr.topic if tr else None
+
+    def get_description(self, obj):
+        tr = self.get_translation(obj)
+        return tr.description if tr else None
+
+    def get_slug(self, obj):
+        tr = self.get_translation(obj)
+        return tr.slug if tr else None
+    def get_group(self, obj):
+        lang = self.get_language()
+        d = get_fallback_detail(obj.group.details, lang)
+        return {
+            "id": obj.group.id,
+            "name": d.name if d else None
+        }
+
+    def get_sponsor_university(self, obj):
+        lang = self.get_language()
+        d = get_fallback_detail(obj.sponsor_university.details, lang)
+        return {
+            "id": obj.sponsor_university.id,
+            "name": d.name if d else None
+        }
+
+    def get_sponsor_country(self, obj):
+        lang = self.get_language()
+        d = get_fallback_detail(obj.sponsor_country.details, lang)
+        return {
+            "id": obj.sponsor_country.id,
+            "name": d.name if d else None
+        }

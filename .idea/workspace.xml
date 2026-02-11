@@ -6,6 +6,7 @@
   <component name="ChangeListManager">
     <list default="true" id="273bf775-8372-454a-8207-178083c192e3" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+<<<<<<< Updated upstream
       <change beforePath="$PROJECT_DIR$/core/settings.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/settings.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/dashboard/pagination.py" beforeDir="false" afterPath="$PROJECT_DIR$/dashboard/pagination.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/dashboard/serializers/Interest_serializer.py" beforeDir="false" afterPath="$PROJECT_DIR$/dashboard/serializers/Interest_serializer.py" afterDir="false" />
@@ -17,6 +18,8 @@
       <change beforePath="$PROJECT_DIR$/main/serializer.py" beforeDir="false" afterPath="$PROJECT_DIR$/main/serializer.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main/urls.py" beforeDir="false" afterPath="$PROJECT_DIR$/main/urls.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main/views.py" beforeDir="false" afterPath="$PROJECT_DIR$/main/views.py" afterDir="false" />
+=======
+>>>>>>> Stashed changes
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -82,7 +85,8 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1770265563010</updated>
-      <workItem from="1770732573886" duration="12743000" />
+      <workItem from="1770732573886" duration="12816000" />
+      <workItem from="1770830310831" duration="428000" />
     </task>
     <servers />
   </component>

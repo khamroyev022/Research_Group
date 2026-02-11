@@ -1,8 +1,10 @@
-
+from rest_framework.response import  Response
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
+from rest_framework.status import HTTP_404_NOT_FOUND
 from rest_framework.views import APIView
+
 from rest_framework.exceptions import ValidationError
 from dashboard.serializers.Interest_serializer import InterestsSerializer
 from .Pagnitions import DefaultPagination,GroupPaginatsion,PublicationHome
@@ -153,7 +155,7 @@ def home_group_list(request):
 
     return Response({
         "group_id": group_id_clean or "",
-        "group": group_data,   # ✅ man
+        "group": group_data,
         "data": {
             "slider": slider_ser.data,
             "achievement": ach_data,
@@ -246,7 +248,6 @@ class MemberByGroupView(APIView):
             many=True,
             context={"request": request}
         )
-
         return Response(serializer.data)
 
 class InterestView(APIView):
@@ -284,6 +285,94 @@ class PublicationByGroupViewSet(ReadOnlyModelViewSet):
             .prefetch_related("details", "members")
             .order_by("-created_at")
         )
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
+from rest_framework import status
+
+class ProjectsListAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+
+        group_id = request.query_params.get("group_id")
+        status_param = request.query_params.get("status")
+        if not group_id:
+            return Response({
+                'xato':'group_id parametr mavjud emas'
+            },status=status.HTTP_404_NOT_FOUND)
+        qs = Projects.objects.all().order_by("-start_date")
+
+        if group_id:
+            group_id = group_id.strip().rstrip("/")
+            qs = qs.filter(group_id=group_id)
+
+        if status_param is not None:
+            s = status_param.lower()
+            if s in ("true", "1", "yes"):
+                qs = qs.filter(status=True)
+            elif s in ("false", "0", "no"):
+                qs = qs.filter(status=False)
+
+        serializer = ProjectsSerializer(
+            qs,
+            many=True,
+            context={"request": request}
+        )
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

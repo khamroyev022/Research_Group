@@ -273,11 +273,6 @@ class InterestDetail(models.Model):
             self.slug = f"{base}-{count+1}" if count else base
         super().save(*args, **kwargs)
 
-class News(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    image = models.ImageField(upload_to='news/')
-    created_at = models.DateTimeField(auto_now_add=True)
-
 
 class Projects(models.Model):
     id = models.UUIDField(primary_key=True, editable=False, default=uuid.uuid4)
@@ -288,6 +283,7 @@ class Projects(models.Model):
     sponsor_university = models.ForeignKey(University,on_delete=models.CASCADE)
     sponsor_country = models.ForeignKey(Country, on_delete=models.CASCADE)
     status = models.BooleanField()
+    group   = models.ForeignKey(Group, on_delete=models.CASCADE, related_name='projects')
 
 class ProjectsTranslate(models.Model):
     title = models.CharField(max_length=200)
