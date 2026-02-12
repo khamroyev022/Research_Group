@@ -724,7 +724,7 @@ class NewsActivitiesSerializer(serializers.ModelSerializer):
     class Meta:
         model = NewsActivities
         fields = [
-            'id', 'group', 'image', 'created_at', 
+            'id', 'group', 'image', 'created_at',
             'title', 'description', 'translation_statuses'
         ]
 
@@ -996,7 +996,7 @@ class GroupMiniSerializer(serializers.ModelSerializer):
 
     def get_name(self, obj):
         lang = self.context.get('language', 'uz')
-        detail = obj.group.filter(language=lang, is_active=True).first()
+        detail = obj.details.filter(language=lang, is_active=True).first()
         if not detail:
             detail = obj.group.filter(language=lang).first()
         if not detail:

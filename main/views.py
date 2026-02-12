@@ -7,7 +7,8 @@ from rest_framework.views import APIView
 
 from rest_framework.exceptions import ValidationError
 from dashboard.serializers.Interest_serializer import InterestsSerializer
-from .Pagnitions import DefaultPagination,GroupPaginatsion,PublicationHome
+from dashboard.serializers.serializer import NewsActivitiesSerializer
+from .Pagnitions import DefaultPagination,GroupPaginatsion,PublicationHome,NewsPaginatsion
 from .serializer import *
 from rest_framework import status
 from  rest_framework.viewsets import ReadOnlyModelViewSet
@@ -75,6 +76,7 @@ def home_group_list(request):
             group_data = {
                 "id": str(group_obj.id),
                 "name": g_tr.name if g_tr else None,
+                "description": g_tr.description if g_tr else None,
                 "image": request.build_absolute_uri(group_obj.image.url) if group_obj.image else None,
                 "created_at": group_obj.created,
             }
@@ -169,12 +171,18 @@ def home_group_list(request):
 class NewshomeView(APIView):
     permission_classes = [AllowAny]
     pagination_class = GroupPaginatsion
+    pagination_class_all = NewsPaginatsion
 
     def get(self, request):
         group_id = request.query_params.get("group_id")
 
+
         if not group_id:
-            return Response({"error": "Parametr berish shart"}, status=400)
+            qs = NewsActivities.objects.all()
+            ser = NewsActivitiesSerializer(qs, many=True, context={"request": request})
+            paginator = self.pagination_class_all()
+            page1 = paginator.paginate_queryset(qs, request, view=self)
+            return paginator.get_paginated_response(ser.data)
 
         group_id = group_id.strip().rstrip("/")
 
@@ -286,11 +294,6 @@ class PublicationByGroupViewSet(ReadOnlyModelViewSet):
             .order_by("-created_at")
         )
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
-from rest_framework import status
-
 class ProjectsListAPIView(APIView):
     permission_classes = [AllowAny]
 
@@ -325,10 +328,51 @@ class ProjectsListAPIView(APIView):
 
 
 
+class MediaViews(APIView):
+    pagination_class = PublicationHome
+    permission_classes = [AllowAny]
+    def get(self, request):
+        group_id = request.query_params.get("group_id")
+
+        if not group_id:
+            return Response({"error": "group_id param berilmadi"}, status=404)
+        group_id = group_id.strip().rstrip("/")
+
+        qs = GroupMedia.objects.filter(group_id=group_id)
+
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(qs, request, view=self)
+
+        ser= MediaSerializer(qs, many=True, context={"request": request})
+        return paginator.get_paginated_response(ser.data)
 
 
+class SocialLinkViewSet(APIView):
+    permission_classes = [AllowAny]
+    def get(self, request):
+        group_id = request.query_params.get("group_id")
+
+        if not group_id:
+            return Response({"error": "group_id param berilmadi"}, status=400)
+        group_id = group_id.strip().rstrip("/")
+        qs = SosialLink.objects.filter(group_id=group_id)
+
+        ser = SociallinkSerializer(qs, many=True, context={"request": request})
+        return Response(ser.data)
 
 
+class ContactView(APIView):
+    permission_classes = [AllowAny]
+    def post(self, request):
+        ser = ContactSerializer(data=request.data, context={"request": request})
+
+        if ser.is_valid():
+            obj = ser.save()
+            return Response({
+                'success': True,
+                'message': 'Contact created successfully',
+            },status=status.HTTP_201_CREATED)
+        return Response(ser.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 

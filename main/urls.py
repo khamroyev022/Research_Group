@@ -13,10 +13,13 @@ urlpatterns = [
     path('group-home/',home_group_list),
     path('group-news/', NewshomeView.as_view()),
     path('group-publication/',PublicationView.as_view()),
-    path('group-conferinsia/',ConferensiaViews.as_view()),
+    path('group-conferences/',ConferensiaViews.as_view()),
     path('group-members/', MemberByGroupView.as_view()),
     path('group-interest/', InterestView.as_view()),
     path("projects/", ProjectsListAPIView.as_view()),
+    path('group-media/', MediaViews.as_view()),
+    path('group-socials/',SocialLinkViewSet.as_view()),
+    path('group_contact/', ContactView.as_view()),
 
     path('',include(router.urls)),
 ]

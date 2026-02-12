@@ -196,7 +196,7 @@ class NewSerializerHome(serializers.ModelSerializer):
 
     class Meta:
         model = NewsActivities
-        fields = "__all__"
+        fields = "id",'title','description','slug','image','created_at',
 
     def get_language(self):
         request = self.context.get("request")
@@ -530,3 +530,54 @@ class ProjectsSerializer(serializers.ModelSerializer):
             "id": obj.sponsor_country.id,
             "name": d.name if d else None
         }
+
+
+class MediaSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+    class Meta:
+        model = GroupMedia
+        fields = 'id','image','video_url','created_at'
+
+    def get_image(self, obj):
+        request = self.context.get("request")
+        if obj.image:
+            return request.build_absolute_uri(obj.image.url)
+        return None
+
+class SocialMediaSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+    class Meta:
+        model = SosialLink
+        fields = 'id','name','image','url','created_at'
+    def get_image(self, obj):
+        request = self.context.get("request")
+        if obj.image:
+            return request.build_absolute_uri(obj.image.url)
+        return None
+
+class ContactSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+    group = serializers.PrimaryKeyRelatedField(
+        queryset=Group.objects.all(),
+        source='details',
+        write_only=True
+)
+    class Meta:
+        model = Contact
+        fields = 'id','full_name','email','phone','message','image','group',
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
