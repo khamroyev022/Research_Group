@@ -190,13 +190,12 @@ class ResourcesSerializer(serializers.ModelSerializer):
         return None
 class NewSerializerHome(serializers.ModelSerializer):
     title = serializers.SerializerMethodField()
-    description = serializers.SerializerMethodField()
     slug = serializers.SerializerMethodField()
     image = serializers.SerializerMethodField()
 
     class Meta:
         model = NewsActivities
-        fields = "id",'title','description','slug','image','created_at',
+        fields = ("id", "title", "slug", "image", "created_at")
 
     def get_language(self):
         request = self.context.get("request")
@@ -204,15 +203,11 @@ class NewSerializerHome(serializers.ModelSerializer):
 
     def get_translation(self, obj):
         lang = self.get_language()
-        return get_fallback_detail(obj.newsactive, lang)
+        return get_fallback_detail(obj.newsactive.all(), lang)
 
     def get_title(self, obj):
         tr = self.get_translation(obj)
         return tr.title if tr else None
-
-    def get_description(self, obj):
-        tr = self.get_translation(obj)
-        return tr.description if tr else None
 
     def get_slug(self, obj):
         tr = self.get_translation(obj)
@@ -250,14 +245,16 @@ class PublicationSerializerhome(serializers.ModelSerializer):
     def get_slug(self, obj):
         tr = self.get_translation(obj)
         return tr.slug if tr else None
-class ConferensiahomeSerializer(serializers.ModelSerializer):
+
+
+class ConferensiaHomeSerializer(serializers.ModelSerializer):
     title = serializers.SerializerMethodField()
     description = serializers.SerializerMethodField()
     slug = serializers.SerializerMethodField()
 
     class Meta:
         model = ConferencesSeminars
-        fields = "__all__"
+        fields = ("id", "start_date", "created_at", "group", "title", "description", "slug")
 
     def get_language(self):
         request = self.context.get("request")
@@ -265,7 +262,7 @@ class ConferensiahomeSerializer(serializers.ModelSerializer):
 
     def get_translation(self, obj):
         lang = self.get_language()
-        return get_fallback_detail(obj.conferencesseminars, lang)
+        return get_fallback_detail(obj.conferencesseminars.all(), lang)
 
     def get_title(self, obj):
         tr = self.get_translation(obj)
@@ -400,14 +397,15 @@ class InterestsSerialzier(serializers.ModelSerializer):
     def get_slug(self, obj):
         tr = self.get_translation(obj)
         return tr.slug if tr else None
-
-
 class PublicationHomeSerializer(serializers.ModelSerializer):
     title = serializers.SerializerMethodField()
     topic = serializers.SerializerMethodField()
     slug = serializers.SerializerMethodField()
     translation_statuses = serializers.SerializerMethodField()
     publisher = serializers.SerializerMethodField()
+
+    group = serializers.SerializerMethodField()
+    members = serializers.SerializerMethodField()
 
     class Meta:
         model = Publication
@@ -448,6 +446,29 @@ class PublicationHomeSerializer(serializers.ModelSerializer):
             return None
         return {"id": str(obj.publisher_id), "name": obj.publisher.name}
 
+    def get_group(self, obj):
+        if not obj.group_id:
+            return None
+
+        lang = self.get_language()
+
+        gd = get_fallback_detail(obj.group.details.all(), lang)
+
+        return {
+            "id": str(obj.group_id),
+            "name": gd.name if gd else None
+        }
+    def get_members(self, obj):
+        lang = self.get_language()
+        out = []
+
+        for m in obj.members.all():
+            md = get_fallback_detail(m.details.all(), lang)
+            out.append({
+                "id": str(m.id),
+                "full_name": md.full_name if md else None
+            })
+        return out
 
 class ProjectsSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
@@ -484,12 +505,12 @@ class ProjectsSerializer(serializers.ModelSerializer):
         return (raw.split(",")[0].split("-")[0] or "uz").strip().lower()
 
     def get_translation(self, obj):
-        return get_fallback_detail(obj.translations, self.get_language())
+        return get_fallback_detail(obj.translations.all(), self.get_language())
 
     def get_image(self, obj):
         request = self.context.get("request")
         if obj.image:
-            return request.build_absolute_uri(obj.image.url)
+            return request.build_absolute_uri(obj.image.url) if request else obj.image.url
         return None
 
     def get_title(self, obj):
@@ -507,30 +528,43 @@ class ProjectsSerializer(serializers.ModelSerializer):
     def get_slug(self, obj):
         tr = self.get_translation(obj)
         return tr.slug if tr else None
+
+
     def get_group(self, obj):
+        if not obj.group:
+            return None
+
         lang = self.get_language()
-        d = get_fallback_detail(obj.group.details, lang)
+        gd = get_fallback_detail(obj.group.details.all(), lang)
+
         return {
-            "id": obj.group.id,
-            "name": d.name if d else None
+            "id": str(obj.group.id),
+            "name": gd.name if gd else None
         }
 
     def get_sponsor_university(self, obj):
+        if not obj.sponsor_university:
+            return None
+
         lang = self.get_language()
-        d = get_fallback_detail(obj.sponsor_university.details, lang)
+        ud = get_fallback_detail(obj.sponsor_university.details.all(), lang)
+
         return {
-            "id": obj.sponsor_university.id,
-            "name": d.name if d else None
+            "id": str(obj.sponsor_university.id),
+            "name": ud.name if ud else None
         }
 
     def get_sponsor_country(self, obj):
-        lang = self.get_language()
-        d = get_fallback_detail(obj.sponsor_country.details, lang)
-        return {
-            "id": obj.sponsor_country.id,
-            "name": d.name if d else None
-        }
+        if not obj.sponsor_country:
+            return None
 
+        lang = self.get_language()
+        cd = get_fallback_detail(obj.sponsor_country.details.all(), lang)
+
+        return {
+            "id": str(obj.sponsor_country.id),
+            "name": cd.name if cd else None
+        }
 
 class MediaSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
@@ -555,25 +589,54 @@ class SocialMediaSerializer(serializers.ModelSerializer):
             return request.build_absolute_uri(obj.image.url)
         return None
 
-class ContactSerializer(serializers.ModelSerializer):
+
+
+class NewsSerializer(serializers.ModelSerializer):
+    title = serializers.SerializerMethodField()
+    slug = serializers.SerializerMethodField()
     image = serializers.SerializerMethodField()
-    group = serializers.PrimaryKeyRelatedField(
-        queryset=Group.objects.all(),
-        source='details',
-        write_only=True
-)
+    group_id = serializers.IntegerField(source="group.id", read_only=True)
+    description = serializers.SerializerMethodField()
     class Meta:
-        model = Contact
-        fields = 'id','full_name','email','phone','message','image','group',
+        model = NewsActivities
+        fields = (
+            "id",
+            "title",
+            "description",
+            "slug",
+            "image",
+            "created_at",
+            "group_id",
+
+        )
+
+    def _get_detail(self, obj):
+        request = self.context.get("request")
+        lang = request.headers.get("Accept-Language", "uz") if request else "uz"
+        return get_fallback_detail(obj.newsactive.all(), lang)
+
+    def get_title(self, obj):
+        d = self._get_detail(obj)
+        return d.title if d else None
+
+    def get_description(self, obj):
+        d = self._get_detail(obj)
+        return d.description if d else None
+
+    def get_slug(self, obj):
+        d = self._get_detail(obj)
+        return d.slug if d else None
+
+    def get_image(self, obj):
+        request = self.context.get("request")
+        if obj.image:
+            return request.build_absolute_uri(obj.image.url) if request else obj.image.url
+        return None
 
 
 
-
-
-
-
-
-
+class PublicationDetailSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
 
 
 

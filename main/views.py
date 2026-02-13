@@ -2,9 +2,7 @@ from rest_framework.response import  Response
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
-from rest_framework.status import HTTP_404_NOT_FOUND
 from rest_framework.views import APIView
-
 from rest_framework.exceptions import ValidationError
 from dashboard.serializers.Interest_serializer import InterestsSerializer
 from dashboard.serializers.serializer import NewsActivitiesSerializer
@@ -12,6 +10,7 @@ from .Pagnitions import DefaultPagination,GroupPaginatsion,PublicationHome,NewsP
 from .serializer import *
 from rest_framework import status
 from  rest_framework.viewsets import ReadOnlyModelViewSet
+
 
 def get_active_fallback_detail(qs, lang, default_lang="uz"):
     model = qs.model
@@ -105,7 +104,6 @@ def home_group_list(request):
             "slug": tr.slug if tr else None
         }
 
-    # Partner
     partner_obj = Partnership.objects.all()
     if group_id_clean:
         partner_obj = partner_obj.filter(group_id=group_id_clean)
@@ -122,7 +120,6 @@ def home_group_list(request):
             "slug": tg.slug if tg else None
         }
 
-    # Student
     student_obj = ReserchStudent.objects.all()
     if group_id_clean:
         student_obj = student_obj.filter(group_id=group_id_clean)
@@ -133,12 +130,11 @@ def home_group_list(request):
         tg = get_fallback_detail(student_obj.reserchStudent, lang)
         student_data = {
             "id": str(student_obj.id),
-            "image": request.build_absolute_uri(student_obj.image.url) if student_obj.image else None,  # ✅ absolute qildim
+            "image": request.build_absolute_uri(student_obj.image.url) if student_obj.image else None,
             "created_at": student_obj.created_at,
             "title": tg.title if tg else None,
         }
 
-    # Resource
     resours_obj = Resources.objects.all()
     if group_id_clean:
         resours_obj = resours_obj.filter(group_id=group_id_clean)
@@ -168,31 +164,81 @@ def home_group_list(request):
     }, status=status.HTTP_200_OK)
 
 
-class NewshomeView(APIView):
+class NewsViewSet(ReadOnlyModelViewSet):
     permission_classes = [AllowAny]
-    pagination_class = GroupPaginatsion
-    pagination_class_all = NewsPaginatsion
+    pagination_class = PublicationHome
 
-    def get(self, request):
-        group_id = request.query_params.get("group_id")
+    lookup_field = "slug"
+    lookup_url_kwarg = "slug"
 
+    def get_queryset(self):
+        group_id = self.request.query_params.get("group_id")
 
-        if not group_id:
-            qs = NewsActivities.objects.all()
-            ser = NewsActivitiesSerializer(qs, many=True, context={"request": request})
-            paginator = self.pagination_class_all()
-            page1 = paginator.paginate_queryset(qs, request, view=self)
-            return paginator.get_paginated_response(ser.data)
+        qs = (
+            NewsActivities.objects
+            .select_related("group")
+            .prefetch_related("newsactive", "group__details")
+            .order_by("-created_at")
+        )
 
-        group_id = group_id.strip().rstrip("/")
+        if group_id:
+            group_id = group_id.strip().rstrip("/")
+            qs = qs.filter(group_id=group_id)
 
-        qs = NewsActivities.objects.filter(group_id=group_id)
+        return qs
 
-        paginator = self.pagination_class()
-        page = paginator.paginate_queryset(qs, request, view=self)
+    def list(self, request, *args, **kwargs):
+        qs = self.filter_queryset(self.get_queryset())
 
-        ser = NewSerializerHome(page, many=True, context={"request": request})
-        return paginator.get_paginated_response(ser.data)
+        page = self.paginate_queryset(qs)
+        if page is not None:
+            ser = NewSerializerHome(page, many=True, context={"request": request})
+            return self.get_paginated_response(ser.data)
+
+        ser = NewSerializerHome(qs, many=True, context={"request": request})
+        return Response({
+            "success": True,
+            "message": "OK",
+            "data": ser.data,
+            "errors": None
+        }, status=status.HTTP_200_OK)
+
+    def retrieve(self, request, *args, **kwargs):
+        slug = kwargs.get(self.lookup_url_kwarg or self.lookup_field)
+        lang = request.headers.get("Accept-Language", "uz")
+
+        detail = (
+            NewsActivitiesDetail.objects
+            .filter(slug=slug, language=lang)
+            .select_related("newsdetail")
+            .first()
+        )
+
+        if not detail and lang != "uz":
+            detail = (
+                NewsActivitiesDetail.objects
+                .filter(slug=slug, language="uz")
+                .select_related("newsdetail")
+                .first()
+            )
+
+        if not detail:
+            return Response({
+                "success": False,
+                "message": "Topilmadi",
+                "data": None,
+                "errors": None
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        news = detail.newsdetail
+        ser = NewsSerializer(news, context={"request": request})
+
+        return Response({
+            "success": True,
+            "message": "OK",
+            "data": ser.data,
+            "errors": None
+        }, status=status.HTTP_200_OK)
 
 class PublicationView(APIView):
     permission_classes = [AllowAny]
@@ -214,24 +260,81 @@ class PublicationView(APIView):
         ser = PublicationSerializerhome(page, many=True, context={"request": request})
         return paginator.get_paginated_response(ser.data)
 
-class ConferensiaViews(APIView):
+class ConferencesViewSet(ReadOnlyModelViewSet):
     permission_classes = [AllowAny]
-    pagination_class = GroupPaginatsion
+    pagination_class = PublicationHome
 
-    def get(self, request):
-        group_id = request.query_params.get("group_id")
-        if not group_id:
-            return Response({"error": "group_id param berilmadi"}, status=400)
+    lookup_field = "slug"
+    lookup_url_kwarg = "slug"
 
-        group_id = group_id.strip().rstrip("/")
-        qs = ConferencesSeminars.objects.filter(group_id=group_id)
+    def get_queryset(self):
+        group_id = self.request.query_params.get("group_id")
 
-        paginator = self.pagination_class()
-        page = paginator.paginate_queryset(qs, request, view=self)
+        qs = (
+            ConferencesSeminars.objects
+            .select_related("group")
+            .prefetch_related("conferencesseminars", "group__details")
+            .order_by("-created_at")
+        )
 
-        ser = ConferensiahomeSerializer(page, many=True, context={"request": request})
-        return paginator.get_paginated_response(ser.data)
+        if group_id:
+            group_id = group_id.strip().rstrip("/")
+            qs = qs.filter(group_id=group_id)
 
+        return qs
+
+    def list(self, request, *args, **kwargs):
+        qs = self.filter_queryset(self.get_queryset())
+
+        page = self.paginate_queryset(qs)
+        if page is not None:
+            ser = ConferensiaHomeSerializer(page, many=True, context={"request": request})
+            return self.get_paginated_response(ser.data)
+
+        ser = ConferensiaHomeSerializer(qs, many=True, context={"request": request})
+        return Response({
+            "success": True,
+            "message": "OK",
+            "data": ser.data,
+            "errors": None
+        }, status=status.HTTP_200_OK)
+
+    def retrieve(self, request, *args, **kwargs):
+        slug = kwargs.get(self.lookup_url_kwarg or self.lookup_field)
+        lang = request.headers.get("Accept-Language", "uz")
+
+        detail = (
+            ConferencesSeminarsDetail.objects
+            .filter(slug=slug, language=lang)
+            .select_related("conferencesseminars")
+            .first()
+        )
+
+        if not detail and lang != "uz":
+            detail = (
+                ConferencesSeminarsDetail.objects
+                .filter(slug=slug, language="uz")
+                .select_related("conferencesseminars")
+                .first()
+            )
+
+        if not detail:
+            return Response({
+                "success": False,
+                "message": "Topilmadi",
+                "data": None,
+                "errors": None
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        obj = detail.conferencesseminars
+        ser = ConferensiaHomeSerializer(obj, context={"request": request})
+
+        return Response({
+            "success": True,
+            "message": "OK",
+            "data": ser.data,
+            "errors": None
+        }, status=status.HTTP_200_OK)
 
 class MemberByGroupView(APIView):
     permission_classes = [AllowAny]
@@ -275,37 +378,30 @@ class InterestView(APIView):
         ser = InterestsSerializer(obj, context={"request": request})
         return Response(ser.data)
 
-class PublicationByGroupViewSet(ReadOnlyModelViewSet):
+class ProjectsViewSet(ReadOnlyModelViewSet):
     permission_classes = [AllowAny]
-    serializer_class = PublicationHomeSerializer
-    pagination_class = PublicationHome
+    serializer_class = ProjectsSerializer
+    pagination_class = GroupPaginatsion
+
+    lookup_field = "slug"
+    lookup_url_kwarg = "slug"
+
     def get_queryset(self):
-        group_id = self.request.query_params.get("group_id")
-        if not group_id:
-            raise ValidationError({"group_id": "group_id param berilmadi"})
-
-        group_id = group_id.strip().rstrip("/")
-
-        return (
-            Publication.objects
-            .filter(group_id=group_id)
-            .select_related("publisher", "group")
-            .prefetch_related("details", "members")
-            .order_by("-created_at")
-        )
-
-class ProjectsListAPIView(APIView):
-    permission_classes = [AllowAny]
-
-    def get(self, request):
-
+        request = self.request
         group_id = request.query_params.get("group_id")
         status_param = request.query_params.get("status")
-        if not group_id:
-            return Response({
-                'xato':'group_id parametr mavjud emas'
-            },status=status.HTTP_404_NOT_FOUND)
-        qs = Projects.objects.all().order_by("-start_date")
+
+        qs = (
+            Projects.objects
+            .select_related("group", "sponsor_university", "sponsor_country")
+            .prefetch_related(
+                "translations",
+                "group__details",
+                "sponsor_university__details",
+                "sponsor_country__details"
+            )
+            .order_by("-start_date")
+        )
 
         if group_id:
             group_id = group_id.strip().rstrip("/")
@@ -318,16 +414,44 @@ class ProjectsListAPIView(APIView):
             elif s in ("false", "0", "no"):
                 qs = qs.filter(status=False)
 
-        serializer = ProjectsSerializer(
-            qs,
-            many=True,
-            context={"request": request}
+        return qs
+
+    def retrieve(self, request, *args, **kwargs):
+        slug = kwargs.get(self.lookup_url_kwarg or self.lookup_field)
+        lang = request.headers.get("Accept-Language", "uz")
+
+        detail = (
+            ProjectsTranslate.objects
+            .filter(slug=slug, language=lang)
+            .select_related("projects")
+            .first()
         )
 
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        if not detail and lang != "uz":
+            detail = (
+                ProjectsTranslate.objects
+                .filter(slug=slug, language="uz")
+                .select_related("projects")
+                .first()
+            )
 
+        if not detail:
+            return Response({
+                "success": False,
+                "message": "Topilmadi",
+                "data": None,
+                "errors": None
+            }, status=status.HTTP_404_NOT_FOUND)
 
+        obj = detail.projects
+        ser = self.get_serializer(obj, context={"request": request})
 
+        return Response({
+            "success": True,
+            "message": "OK",
+            "data": ser.data,
+            "errors": None
+        })
 class MediaViews(APIView):
     pagination_class = PublicationHome
     permission_classes = [AllowAny]
@@ -346,7 +470,6 @@ class MediaViews(APIView):
         ser= MediaSerializer(qs, many=True, context={"request": request})
         return paginator.get_paginated_response(ser.data)
 
-
 class SocialLinkViewSet(APIView):
     permission_classes = [AllowAny]
     def get(self, request):
@@ -360,20 +483,82 @@ class SocialLinkViewSet(APIView):
         ser = SociallinkSerializer(qs, many=True, context={"request": request})
         return Response(ser.data)
 
-
-class ContactView(APIView):
+class PublicationViewSet(ReadOnlyModelViewSet):
     permission_classes = [AllowAny]
-    def post(self, request):
-        ser = ContactSerializer(data=request.data, context={"request": request})
+    pagination_class = PublicationHome
 
-        if ser.is_valid():
-            obj = ser.save()
+    lookup_field = "slug"
+    lookup_url_kwarg = "slug"
+
+    def get_queryset(self):
+        group_id = self.request.query_params.get("group_id")
+
+        qs = (
+            Publication.objects
+            .select_related("publisher", "group")
+            .prefetch_related("details", "members")
+            .order_by("-created_at")
+        )
+
+        if group_id:
+            group_id = group_id.strip().rstrip("/")
+            qs = qs.filter(group_id=group_id)
+
+        return qs
+
+    def list(self, request, *args, **kwargs):
+
+        qs = self.filter_queryset(self.get_queryset())
+
+        page = self.paginate_queryset(qs)
+        if page is not None:
+            ser = PublicationHomeSerializer(page, many=True, context={"request": request})
+            return self.get_paginated_response(ser.data)
+
+        ser = PublicationHomeSerializer(qs, many=True, context={"request": request})
+        return Response({
+            "success": True,
+            "message": "OK",
+            "data": ser.data,
+            "errors": None
+        }, status=status.HTTP_200_OK)
+
+    def retrieve(self, request, *args, **kwargs):
+        slug = kwargs.get(self.lookup_url_kwarg or self.lookup_field)
+        lang = request.headers.get("Accept-Language", "uz")
+
+        detail = (
+            PublicationDetail.objects
+            .filter(slug=slug, language=lang)
+            .select_related("details")
+            .first()
+        )
+
+        if not detail and lang != "uz":
+            detail = (
+                PublicationDetail.objects
+                .filter(slug=slug, language="uz")
+                .select_related("details")
+                .first()
+            )
+
+        if not detail:
             return Response({
-                'success': True,
-                'message': 'Contact created successfully',
-            },status=status.HTTP_201_CREATED)
-        return Response(ser.errors, status=status.HTTP_400_BAD_REQUEST)
+                "success": False,
+                "message": "Topilmadi",
+                "data": None,
+                "errors": None
+            }, status=status.HTTP_404_NOT_FOUND)
 
+        pub = detail.details
+        ser = PublicationDetailSerializer(pub, context={"request": request})
+
+        return Response({
+            "success": True,
+            "message": "OK",
+            "data": ser.data,
+            "errors": None
+        }, status=status.HTTP_200_OK)
 
 
 

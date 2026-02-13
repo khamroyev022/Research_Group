@@ -1,5 +1,6 @@
 from rest_framework.routers import DefaultRouter
 from django.urls import path
+
 from .views import *
 
 router = DefaultRouter()
@@ -33,4 +34,5 @@ urlpatterns =[
     path('statistika/',statictika),
     path('email-update/<uuid:pk>/',email_update),
     path('email-update/<uuid:pk>', email_update),
+
     ] + router.urls

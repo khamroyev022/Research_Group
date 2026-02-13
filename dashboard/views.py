@@ -626,7 +626,7 @@ def statictika(request):
     member_count = Member.objects.count()
     country_count = Country.objects.count()
     publication_count = Publication.objects.count()
-    news_count = News.objects.count()
+    news_count = NewsActivities.objects.count()
     confiresnising_count = ConferencesSeminars.objects.count()
     return Response({
         "group_count": group_count,
@@ -651,7 +651,6 @@ def email_update(request,pk):
     if ser.is_valid(raise_exception=True):
         ser.save()
         return Response(ser.data)
-
 
 
 

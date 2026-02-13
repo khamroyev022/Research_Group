@@ -429,7 +429,7 @@ class ConferencesSeminarsDetail(models.Model):
     title = models.CharField(max_length=100)
     description = models.TextField()
     language = models.CharField(choices=LANGUAGE_CHOICES, max_length=2,default='uz')
-    slug = models.SlugField(max_length=10,null=True)
+    slug = models.SlugField(max_length=100,null=True)
     conferencesseminars = models.ForeignKey(ConferencesSeminars, on_delete=models.CASCADE, related_name='conferencesseminars')
     def save(self, *args, **kwargs):
         base = slugify(self.title)
@@ -461,19 +461,6 @@ class SliderGroupDetail(models.Model):
 
     class Meta:
         unique_together = ('slider_group', 'language')
-
-class Contact(models.Model):
-    id = models.UUIDField(primary_key=True, editable=False, default=uuid.uuid4)
-    created_at = models.DateTimeField(auto_now_add=True)
-    full_name = models.CharField(max_length=100)
-    email = models.EmailField(unique=True)
-    phone = models.IntegerField()
-    image = models.ImageField(upload_to='media/contact/')
-    message = models.TextField()
-    group = models.ForeignKey(Group,on_delete=models.CASCADE, related_name='contact')
-    status = models.CharField(max_length=50, choices=STATUS_CHOISE, default='new')
-    def __str__(self):
-        return self.fullname
 
 
 class GroupMedia(models.Model):
