@@ -163,7 +163,6 @@ def home_group_list(request):
         }
     }, status=status.HTTP_200_OK)
 
-
 class NewsViewSet(ReadOnlyModelViewSet):
     permission_classes = [AllowAny]
     pagination_class = PublicationHome
@@ -239,26 +238,6 @@ class NewsViewSet(ReadOnlyModelViewSet):
             "data": ser.data,
             "errors": None
         }, status=status.HTTP_200_OK)
-
-class PublicationView(APIView):
-    permission_classes = [AllowAny]
-    pagination_class = GroupPaginatsion
-
-    def get(self, request):
-        group_id = request.query_params.get("group_id")
-
-        if not group_id:
-            return Response({"error": "group_id param berilmadi"}, status=400)
-
-        group_id = group_id.strip().rstrip("/")
-
-        qs = Publication.objects.filter(group_id=group_id)
-
-        paginator = self.pagination_class()
-        page = paginator.paginate_queryset(qs, request, view=self)
-
-        ser = PublicationSerializerhome(page, many=True, context={"request": request})
-        return paginator.get_paginated_response(ser.data)
 
 class ConferencesViewSet(ReadOnlyModelViewSet):
     permission_classes = [AllowAny]
@@ -341,24 +320,19 @@ class MemberByGroupView(APIView):
 
     def get(self, request):
         group_id = request.query_params.get("group_id")
-
         if not group_id:
-            return Response(
-                {"error": "group_id param berilmadi"},
-                status=400
-            )
+            return Response({"error": "group_id param berilmadi"}, status=400)
 
         group_id = group_id.strip().rstrip("/")
 
-        qs = Member.objects.filter(group_id=group_id) \
-            .select_related("group", "country", "university") \
-            .prefetch_related("details")
-
-        serializer = MemberGetSerializer(
-            qs,
-            many=True,
-            context={"request": request}
+        qs = (
+            Member.objects
+            .filter(group_id=group_id, status="completed")
+            .select_related("group", "country", "university")
+            .prefetch_related("details", "group__details", "country__details", "university__details")
         )
+
+        serializer = MemberGetSerializer(qs, many=True, context={"request": request})
         return Response(serializer.data)
 
 class InterestView(APIView):
@@ -452,6 +426,7 @@ class ProjectsViewSet(ReadOnlyModelViewSet):
             "data": ser.data,
             "errors": None
         })
+
 class MediaViews(APIView):
     pagination_class = PublicationHome
     permission_classes = [AllowAny]
@@ -496,7 +471,12 @@ class PublicationViewSet(ReadOnlyModelViewSet):
         qs = (
             Publication.objects
             .select_related("publisher", "group")
-            .prefetch_related("details", "members")
+            .prefetch_related(
+                "details",
+                "members",
+                "members__details",
+                "group__details",
+            )
             .order_by("-created_at")
         )
 
@@ -507,7 +487,6 @@ class PublicationViewSet(ReadOnlyModelViewSet):
         return qs
 
     def list(self, request, *args, **kwargs):
-
         qs = self.filter_queryset(self.get_queryset())
 
         page = self.paginate_queryset(qs)
@@ -530,7 +509,7 @@ class PublicationViewSet(ReadOnlyModelViewSet):
         detail = (
             PublicationDetail.objects
             .filter(slug=slug, language=lang)
-            .select_related("details")
+            .select_related("publication")
             .first()
         )
 
@@ -538,7 +517,7 @@ class PublicationViewSet(ReadOnlyModelViewSet):
             detail = (
                 PublicationDetail.objects
                 .filter(slug=slug, language="uz")
-                .select_related("details")
+                .select_related("publication")
                 .first()
             )
 
@@ -550,7 +529,7 @@ class PublicationViewSet(ReadOnlyModelViewSet):
                 "errors": None
             }, status=status.HTTP_404_NOT_FOUND)
 
-        pub = detail.details
+        pub = detail.publication
         ser = PublicationDetailSerializer(pub, context={"request": request})
 
         return Response({
@@ -559,13 +538,6 @@ class PublicationViewSet(ReadOnlyModelViewSet):
             "data": ser.data,
             "errors": None
         }, status=status.HTTP_200_OK)
-
-
-
-
-
-
-
 
 
 

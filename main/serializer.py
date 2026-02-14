@@ -217,35 +217,6 @@ class NewSerializerHome(serializers.ModelSerializer):
         request = self.context.get("request")
         return request.build_absolute_uri(obj.image.url) if (request and obj.image) else None
 
-class PublicationSerializerhome(serializers.ModelSerializer):
-    title = serializers.SerializerMethodField()
-    topic = serializers.SerializerMethodField()
-    slug = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Publication
-        fields = "__all__"
-
-    def get_language(self):
-        request = self.context.get("request")
-        return request.headers.get("Accept-Language", "uz") if request else "uz"
-
-    def get_translation(self, obj):
-        lang = self.get_language()
-        return get_fallback_detail(obj.details, lang)
-
-    def get_title(self, obj):
-        tr = self.get_translation(obj)
-        return tr.title if tr else None
-
-    def get_topic(self, obj):
-        tr = self.get_translation(obj)
-        return tr.topic if tr else None
-
-    def get_slug(self, obj):
-        tr = self.get_translation(obj)
-        return tr.slug if tr else None
-
 
 class ConferensiaHomeSerializer(serializers.ModelSerializer):
     title = serializers.SerializerMethodField()
@@ -635,10 +606,71 @@ class NewsSerializer(serializers.ModelSerializer):
 
 
 
+from rest_framework import serializers
+from main.models import Publication, LANGUAGE_CHOICES
+
 class PublicationDetailSerializer(serializers.ModelSerializer):
-    image = serializers.SerializerMethodField()
+    title = serializers.SerializerMethodField()
+    topic = serializers.SerializerMethodField()
+    slug = serializers.SerializerMethodField()
+    translation_statuses = serializers.SerializerMethodField()
+    publisher = serializers.SerializerMethodField()
+    group = serializers.SerializerMethodField()
+    members = serializers.SerializerMethodField()
 
+    class Meta:
+        model = Publication
+        fields = [
+            "id", "url", "publication_date", "featured", "created_at",
+            "group",
+            "publisher",
+            "translation_statuses",
+            "title", "topic", "slug",
+            "members",
+        ]
 
+    def get_language(self):
+        request = self.context.get("request")
+        return request.headers.get("Accept-Language", "uz") if request else "uz"
+
+    def _tr(self, obj):
+        return get_fallback_detail(obj.details.all(), self.get_language())
+
+    def get_title(self, obj):
+        tr = self._tr(obj)
+        return tr.title if tr else None
+
+    def get_topic(self, obj):
+        tr = self._tr(obj)
+        return tr.topic if tr else None
+
+    def get_slug(self, obj):
+        tr = self._tr(obj)
+        return tr.slug if tr else None
+
+    def get_translation_statuses(self, obj):
+        active_langs = set(obj.details.values_list("language", flat=True))
+        return [{"code": code, "is_active": code in active_langs} for code, _ in LANGUAGE_CHOICES]
+
+    def get_publisher(self, obj):
+        if not obj.publisher:
+            return None
+        return {"id": str(obj.publisher_id), "name": obj.publisher.name}
+
+    def get_group(self, obj):
+        if not obj.group_id:
+            return None
+        lang = self.get_language()
+        gd = get_fallback_detail(obj.group.details.all(), lang)
+        return {"id": str(obj.group_id), "name": gd.name if gd else None}
+
+    def get_members(self, obj):
+        lang = self.get_language()
+        out = []
+        for m in obj.members.all():
+            md = get_fallback_detail(m.details.all(), lang)
+            out.append({"id": str(m.id), "full_name": md.full_name if md else None})
+        return out
 
 
 
