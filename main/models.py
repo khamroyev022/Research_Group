@@ -283,14 +283,14 @@ class Projects(models.Model):
     sponsor_university = models.ForeignKey(University,on_delete=models.CASCADE)
     sponsor_country = models.ForeignKey(Country, on_delete=models.CASCADE)
     status = models.BooleanField()
-    group = models.ForeignKey(Group, on_delete=models.SET_NULL,related_name='preoject', null=True, blank=True)
+    group = models.ForeignKey(Group, on_delete=models.CASCADE,related_name='preoject',null=True)
 
 
 class ProjectsTranslate(models.Model):
     title = models.CharField(max_length=200)
     topic = models.CharField(max_length=200)
     description = models.TextField()
-    slug = models.SlugField(max_length=20, null=True)
+    slug = models.SlugField(max_length=200, null=True)
     projects = models.ForeignKey(Projects, on_delete=models.CASCADE,related_name='translations')
     language = models.CharField(max_length=2, choices=LANGUAGE_CHOICES,default='uz')
 

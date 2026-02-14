@@ -5,7 +5,7 @@ from rest_framework.routers import DefaultRouter
 router = DefaultRouter()
 router.register(r'groups', GroupViewSet, basename='groups')
 router.register(r'media', MediaGroupViewSet, basename='media')
-router.register(r'group-publication',PublicationViewSet, basename='group-home-publication')
+router.register(r'group-publications',PublicationViewSet, basename='group-home-publication')
 router.register(r'group-news', NewsViewSet, basename='group-news')
 router.register(r'group-projects', ProjectsViewSet, basename='group-projects')
 router.register(r'group-conferences', ConferencesViewSet, basename='group-conferences')
@@ -18,5 +18,6 @@ urlpatterns = [
     path('group-interest/', InterestView.as_view()),
     path('group-media/', MediaViews.as_view()),
     path('group-socials/',SocialLinkViewSet.as_view()),
+    path('group-slider-details/',GlobalSlugAPIView.as_view()),
     path('',include(router.urls)),
 ]

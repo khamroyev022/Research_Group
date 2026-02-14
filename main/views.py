@@ -75,7 +75,6 @@ def home_group_list(request):
             group_data = {
                 "id": str(group_obj.id),
                 "name": g_tr.name if g_tr else None,
-                "description": g_tr.description if g_tr else None,
                 "image": request.build_absolute_uri(group_obj.image.url) if group_obj.image else None,
                 "created_at": group_obj.created,
             }
@@ -303,17 +302,18 @@ class ConferencesViewSet(ReadOnlyModelViewSet):
                 "message": "Topilmadi",
                 "data": None,
                 "errors": None
-            }, status=status.HTTP_404_NOT_FOUND)
+            }, status=404)
 
         obj = detail.conferencesseminars
-        ser = ConferensiaHomeSerializer(obj, context={"request": request})
+
+        ser = ConferensiaDetailSerializer(obj, context={"request": request})
 
         return Response({
             "success": True,
             "message": "OK",
             "data": ser.data,
             "errors": None
-        }, status=status.HTTP_200_OK)
+        })
 
 class MemberByGroupView(APIView):
     permission_classes = [AllowAny]
@@ -434,7 +434,11 @@ class MediaViews(APIView):
         group_id = request.query_params.get("group_id")
 
         if not group_id:
-            return Response({"error": "group_id param berilmadi"}, status=404)
+            qs = GroupMedia.objects.all()
+            ser = MediaSerializer(qs, many=True, context={"request": request})
+            paginator = self.pagination_class()
+            page = paginator.paginate_queryset(qs, request, view=self)
+            return paginator.get_paginated_response(ser.data)
         group_id = group_id.strip().rstrip("/")
 
         qs = GroupMedia.objects.filter(group_id=group_id)
@@ -539,8 +543,105 @@ class PublicationViewSet(ReadOnlyModelViewSet):
             "errors": None
         }, status=status.HTTP_200_OK)
 
+class GlobalSlugAPIView(APIView):
+    permission_classes = [AllowAny]
 
+    def get(self, request):
+        slug = request.query_params.get("slug")
+        lang = request.headers.get("Accept-Language", "uz")
 
+        if not slug:
+            return Response({"error": "slug required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        tr = AchivmentTranslation.objects.filter(slug=slug, language=lang)\
+            .select_related("achivment", "achivment__group").first()
+        if not tr:
+            tr = AchivmentTranslation.objects.filter(slug=slug)\
+                .select_related("achivment", "achivment__group").first()
+
+        if tr:
+            ach = tr.achivment
+            return Response({
+                "type": "achivment",
+                "id": str(ach.id),
+                "group_id": str(ach.group_id),
+                "image": request.build_absolute_uri(ach.image.url) if ach.image else None,
+                "created_at": ach.created_at,
+                "detail": {
+                    "title": tr.title,
+                    "description": tr.description,
+                    "slug": tr.slug,
+                    "language": tr.language,
+                }
+            }, status=status.HTTP_200_OK)
+
+        tr = PartnershipDetail.objects.filter(slug=slug, language=lang)\
+            .select_related("partnership", "partnership__group").first()
+        if not tr:
+            tr = PartnershipDetail.objects.filter(slug=slug)\
+                .select_related("partnership", "partnership__group").first()
+
+        if tr:
+            p = tr.partnership
+            return Response({
+                "type": "partnership",
+                "id": str(p.id),
+                "group_id": str(p.group_id),
+                "image": request.build_absolute_uri(p.image.url) if p.image else None,
+                "created_at": p.created_at,
+                "detail": {
+                    "title": tr.title,
+                    "description": tr.description,
+                    "slug": tr.slug,
+                    "language": tr.language,
+                }
+            }, status=status.HTTP_200_OK)
+
+        tr = ReserchStudentDatail.objects.filter(slug=slug, language=lang)\
+            .select_related("reserchStudent", "reserchStudent__group").first()
+        if not tr:
+            tr = ReserchStudentDatail.objects.filter(slug=slug)\
+                .select_related("reserchStudent", "reserchStudent__group").first()
+
+        if tr:
+            rs = tr.reserchStudent
+            return Response({
+                "type": "reserch_student",
+                "id": str(rs.id),
+                "group_id": str(rs.group_id),
+                "image": request.build_absolute_uri(rs.image.url) if rs.image else None,
+                "created_at": rs.created_at,
+                "detail": {
+                    "title": tr.title,
+                    "description": tr.description,
+                    "slug": tr.slug,
+                    "language": tr.language,
+                }
+            }, status=status.HTTP_200_OK)
+
+        tr = ResourcesDatail.objects.filter(slug=slug, language=lang)\
+            .select_related("resources", "resources__group").first()
+        if not tr:
+            tr = ResourcesDatail.objects.filter(slug=slug)\
+                .select_related("resources", "resources__group").first()
+
+        if tr:
+            r = tr.resources
+            return Response({
+                "type": "resources",
+                "id": str(r.id),
+                "group_id": str(r.group_id),
+                "image": request.build_absolute_uri(r.image.url) if r.image else None,
+                "created_at": r.created_at,
+                "detail": {
+                    "title": tr.title,
+                    "description": tr.description,
+                    "slug": tr.slug,
+                    "language": tr.language,
+                }
+            }, status=status.HTTP_200_OK)
+
+        return Response({"error": "Topilmadi"}, status=status.HTTP_404_NOT_FOUND)
 
 
 
