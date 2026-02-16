@@ -1017,4 +1017,8 @@ class SocialLinkSerializer(serializers.ModelSerializer):
         fields = ['id','name','url','group','image','created_at']
 
 
+class MemberPatchStatusSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Member
+        fields = ["status"]
 

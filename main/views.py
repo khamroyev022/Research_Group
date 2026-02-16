@@ -41,22 +41,58 @@ def direction_list_list(request):
     }, status=status.HTTP_200_OK)
 
 class GroupViewSet(ReadOnlyModelViewSet):
-    queryset = Group.objects.all().select_related("direction").prefetch_related("details")
     serializer_class = GroupSerializer
     permission_classes = [AllowAny]
-    pagination_class = DefaultPagination
+    pagination_class = None
 
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["direction"]
+    def get_queryset(self):
+        qs = Group.objects.all().select_related("direction").prefetch_related("details")
+
+        direction_id = (
+            self.request.query_params.get("direction_id")
+            or self.request.query_params.get("direction")
+        )
+        limit_param = self.request.query_params.get("limit")
+
+        if direction_id:
+            direction_id = direction_id.strip().rstrip("/")
+            qs = qs.filter(direction_id=direction_id)
+
+        if limit_param:
+            try:
+                limit_val = int(limit_param)
+                if limit_val > 0:
+                    qs = qs[:limit_val]
+            except ValueError:
+                pass
+        else:
+            if not direction_id:
+                qs = qs[:8]
+
+        return qs
+
+    def list(self, request, *args, **kwargs):
+        direction_id = request.query_params.get("direction_id") or request.query_params.get("direction")
+        limit_param = request.query_params.get("limit")
+
+        qs = self.get_queryset()
+        ser = self.get_serializer(qs, many=True)
+
+        return Response({
+            "direction_id": direction_id.strip().rstrip("/") if direction_id else None,
+            "limit": int(limit_param) if (limit_param and limit_param.isdigit()) else (8 if not direction_id else None),
+            "count": len(ser.data),
+            "data": ser.data
+        })
 
 class MediaGroupViewSet(ReadOnlyModelViewSet):
-    queryset = GroupMedia.objects.all().select_related("group").prefetch_related("details")
+    queryset = GroupMedia.objects.all().select_related("group").prefetch_related("group__details")
     serializer_class = MediaSerializer
     permission_classes = [AllowAny]
     pagination_class = DefaultPagination
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["group"]
-    lookup_field = "slug"
+
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def home_group_list(request):
@@ -77,6 +113,8 @@ def home_group_list(request):
                 "name": g_tr.name if g_tr else None,
                 "image": request.build_absolute_uri(group_obj.image.url) if group_obj.image else None,
                 "created_at": group_obj.created,
+                "description": g_tr.description if g_tr else None,
+                "slug": g_tr.slug if g_tr else None
             }
 
     # Slider
@@ -132,6 +170,7 @@ def home_group_list(request):
             "image": request.build_absolute_uri(student_obj.image.url) if student_obj.image else None,
             "created_at": student_obj.created_at,
             "title": tg.title if tg else None,
+            "slug":tg.slug if tg else None
         }
 
     resours_obj = Resources.objects.all()
@@ -645,11 +684,51 @@ class GlobalSlugAPIView(APIView):
 
 
 
+class MemberCreateApi(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+
+        lang = request.headers.get("Accept-Language", "uz")
+        email = request.data.get("email")
+        phone = request.data.get("phone")
+        image = request.FILES.get("image")
+        group_id = request.data.get("group")
+
+        full_name = request.data.get("full_name")
+        affiliation = request.data.get("affiliation")
+        about = request.data.get("about")
+
+        if not email or not phone or not group_id or not full_name:
+            return Response({
+                "error": "Majburiy field yetishmayapti"
+            }, status=400)
+
+        try:
+            group = Group.objects.get(id=group_id)
+        except Group.DoesNotExist:
+            return Response({"error": "Group topilmadi"}, status=404)
 
 
 
+        member = Member.objects.create(
+            email=email,
+            phone=phone,
+            image=image,
+            group=group
+        )
 
+        MemberDetail.objects.create(
+            member=member,
+            language=lang,
+            full_name=full_name,
+            affiliation=affiliation,
+            about=about
+        )
 
+        return Response({
+            "message": "Member yaratildi",
+        }, status=status.HTTP_201_CREATED)
 
 
 

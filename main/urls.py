@@ -19,5 +19,6 @@ urlpatterns = [
     path('group-media/', MediaViews.as_view()),
     path('group-socials/',SocialLinkViewSet.as_view()),
     path('group-slider-details/',GlobalSlugAPIView.as_view()),
+    path("members/create/", MemberCreateApi.as_view()),
     path('',include(router.urls)),
 ]

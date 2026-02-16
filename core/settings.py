@@ -47,6 +47,7 @@ REST_FRAMEWORK = {
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    "main.middleware.APILogMiddleware",
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -157,3 +158,34 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024
 # 50 MB (upload file limit)
 FILE_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024
 
+
+import os
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+
+    "formatters": {
+        "verbose": {
+            "format": "{levelname} {asctime} {name} | {message}",
+            "style": "{",
+        },
+    },
+
+    "handlers": {
+        "api_file": {
+            "level": "INFO",
+            "class": "logging.FileHandler",
+            "filename": os.path.join(BASE_DIR, "logs/api.log"),
+            "formatter": "verbose",
+        },
+    },
+
+    "loggers": {
+        "api": {
+            "handlers": ["api_file"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}

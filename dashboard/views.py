@@ -16,7 +16,7 @@ from .serializers.Interest_serializer import *
 from .serializers.serializer import *
 from rest_framework.permissions import IsAuthenticated,AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser,JSONParser
 from .pagination import DefaultPagination
 from .serializers.projects_serializer import *
 from rest_framework.decorators import parser_classes
@@ -243,7 +243,7 @@ class MemberViewset(ModelViewSet):
     serializer_class = MemberSerializer
     permission_classes = [AllowAny]
     pagination_class = DefaultPagination
-    parser_classes = [MultiPartParser, FormParser]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = MemberFilter
     search_fields = [
@@ -618,7 +618,6 @@ class SosialLinkViewset(ModelViewSet):
         return qs
 
 
-
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def statictika(request):
@@ -652,12 +651,33 @@ def email_update(request,pk):
         ser.save()
         return Response(ser.data)
 
+class ContactView(APIView):
+    permission_classes = [AllowAny]
+    def get(self, request):
+        group_id = request.query_params.get("group_id")
+        if not group_id:
+            return Response({
+                "error": "group_id maydoni majburiy"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        qs = Member.objects.filter(group_id=group_id, status='new')
+        serializer = MemberSerializer(qs, many=True)
+        return Response(serializer.data)
 
+class MemberStatusView(APIView):
+    permission_classes = [AllowAny]
 
+    def patch(self, request, pk):
 
+        member = Member.objects.filter(pk=pk).first()
+        if not member:
+            return Response({"error": "Member topilmadi yoki group_id noto‘g‘ri"}, status=404)
 
+        ser = MemberPatchStatusSerializer(member, data=request.data, partial=True)
+        if ser.is_valid():
+            ser.save()
+            return Response(ser.data, status=200)
 
-
+        return Response(ser.errors, status=400)
 
 
 

@@ -162,7 +162,7 @@ class Member(models.Model):
         on_delete=models.CASCADE,
         related_name='members',null=True
     )
-    country = models.ForeignKey(Country, on_delete=models.CASCADE, related_name='members')
+    country = models.ForeignKey(Country, on_delete=models.CASCADE, related_name='members', null=True)
     group = models.ForeignKey(
         Group,
         on_delete=models.CASCADE,

@@ -587,3 +587,80 @@ class ConferensiaDetailSerializer(serializers.ModelSerializer):
         return tr.slug if tr else None
 
 
+class MemberGetSerializer(serializers.ModelSerializer):
+    full_name = serializers.SerializerMethodField()
+    about = serializers.SerializerMethodField()
+    affiliation = serializers.SerializerMethodField()
+
+    university_name = serializers.SerializerMethodField()
+    country_name = serializers.SerializerMethodField()
+    group_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Member
+        fields = [
+            "id",
+            "email",
+            "phone",
+            "image",
+            "orcid",
+            "google_scholar",
+            "scopus",
+            "status",
+            "created",
+            "university",
+            "country",
+            "group",
+
+            "full_name",
+            "about",
+            "affiliation",
+            "university_name",
+            "country_name",
+            "group_name",
+        ]
+
+    def _lang(self):
+        # headerdan olsangiz ham bo‘ladi, contextdan ham
+        request = self.context.get("request")
+        if request:
+            return request.headers.get("Accept-Language", "uz")
+        return self.context.get("language", "uz")
+
+    def get_full_name(self, obj):
+        lang = self._lang()
+        d = get_fallback_detail(obj.details.all(), lang)
+        return d.full_name if d else None
+
+    def get_about(self, obj):
+        lang = self._lang()
+        d = get_fallback_detail(obj.details.all(), lang)
+        return d.about if d else None
+
+    def get_affiliation(self, obj):
+        lang = self._lang()
+        d = get_fallback_detail(obj.details.all(), lang)
+        return d.affiliation if d else None
+
+    def get_university_name(self, obj):
+        if not obj.university:
+            return None
+        lang = self._lang()
+        d = get_fallback_detail(obj.university.details.all(), lang)
+        return d.name if d else None
+
+    def get_country_name(self, obj):
+        lang = self._lang()
+        d = get_fallback_detail(obj.country.details.all(), lang)
+        return d.name if d else None
+
+    def get_group_name(self, obj):
+        lang = self._lang()
+        d = get_fallback_detail(obj.group.details.all(), lang)
+        return d.name if d else None
+
+
+class MembersPost(serializers.ModelSerializer):
+    class Meta:
+        model = Member
+        fields = '__all__'

@@ -34,5 +34,7 @@ urlpatterns =[
     path('statistika/',statictika),
     path('email-update/<uuid:pk>/',email_update),
     path('email-update/<uuid:pk>', email_update),
+    path('contact-members/',ContactView.as_view()),
+    path('member-status-change/<uuid:pk>/',MemberStatusView.as_view()),
 
     ] + router.urls
