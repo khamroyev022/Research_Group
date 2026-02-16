@@ -960,7 +960,6 @@ class SliderGroupSerializer(serializers.ModelSerializer):
                 title=title,
                 is_avtive=True
             )
-
         return instance
 
     def to_representation(self, instance):
