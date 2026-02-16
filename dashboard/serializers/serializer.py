@@ -330,7 +330,6 @@ class MemberSerializer(serializers.ModelSerializer):
 
             "full_name": detail.full_name if detail else None,
             "affiliation": detail.affiliation if detail else None,
-            "about": detail.about if detail else None,
             "slug": detail.slug if detail else None,
         }
 

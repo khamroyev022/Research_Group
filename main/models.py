@@ -154,9 +154,9 @@ class GroupDetail(models.Model):
 
 class Member(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    email = models.EmailField()
-    phone = models.CharField(max_length=20)
-    image = models.ImageField(upload_to='members/')
+    email = models.EmailField(null=False)
+    phone = models.CharField(max_length=20, null=False)
+    image = models.ImageField(upload_to='members/', null=False)
     university = models.ForeignKey(
         University,
         on_delete=models.CASCADE,

@@ -731,7 +731,18 @@ class MemberCreateApi(APIView):
         }, status=status.HTTP_201_CREATED)
 
 
+class MemberDetailView(APIView):
+    permission_classes = [AllowAny]
 
+    def get(self, request, slug):
+        detail = MemberDetail.objects.select_related("member").filter(slug=slug).first()
+        if not detail:
+            return Response({"error": "Member topilmadi"}, status=404)
+
+        member = detail.member
+
+        ser = MemberDetailGetSerializer(member, context={"request": request})
+        return Response(ser.data)
 
 
 

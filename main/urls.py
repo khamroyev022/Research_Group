@@ -1,6 +1,8 @@
 from django.urls import path,include
 from .views import *
 from rest_framework.routers import DefaultRouter
+from .serach_view import global_search
+
 
 router = DefaultRouter()
 router.register(r'groups', GroupViewSet, basename='groups')
@@ -20,5 +22,8 @@ urlpatterns = [
     path('group-socials/',SocialLinkViewSet.as_view()),
     path('group-slider-details/',GlobalSlugAPIView.as_view()),
     path("members/create/", MemberCreateApi.as_view()),
+    path("members/<slug:slug>/", MemberDetailView.as_view()),
+    path("search/", global_search, name="global_search"),
+
     path('',include(router.urls)),
 ]
