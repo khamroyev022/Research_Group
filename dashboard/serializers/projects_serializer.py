@@ -1,6 +1,12 @@
 from rest_framework import serializers
-from main.models import Projects, ProjectsTranslate, University, Country, LANGUAGE_CHOICES
 from django.utils.text import slugify
+
+from main.models import (
+    Projects, ProjectsTranslate,
+    University, Country, Group,
+    LANGUAGE_CHOICES
+)
+
 
 def get_fallback_detail(qs, lang, default_lang="uz"):
     detail = qs.filter(language=lang).first() if lang else None
@@ -13,9 +19,7 @@ def get_fallback_detail(qs, lang, default_lang="uz"):
     return qs.first()
 
 
-
 def build_unique_slug(model, base_text, slug_field="slug"):
-
     base = slugify(base_text) if base_text else "item"
     count = model.objects.filter(**{f"{slug_field}__startswith": base}).count()
     return f"{base}-{count+1}" if count else base
@@ -25,16 +29,10 @@ class ProjectsSerializer(serializers.ModelSerializer):
     title = serializers.CharField(write_only=True, required=False, allow_blank=True, allow_null=True)
     topic = serializers.CharField(write_only=True, required=False, allow_blank=True, allow_null=True)
     description = serializers.CharField(write_only=True, required=False, allow_blank=True, allow_null=True)
-
-    sponsor_university = serializers.PrimaryKeyRelatedField(
-        queryset=University.objects.all(),
-        required=True
-    )
-    sponsor_country = serializers.PrimaryKeyRelatedField(
-        queryset=Country.objects.all(),
-        required=True
-    )
-
+    sponsor_university = serializers.PrimaryKeyRelatedField(queryset=University.objects.all(), required=True)
+    sponsor_country = serializers.PrimaryKeyRelatedField(queryset=Country.objects.all(), required=True)
+    group = serializers.PrimaryKeyRelatedField(queryset=Group.objects.all(), required=False, allow_null=True)
+    group_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)
     translation_statuses = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
@@ -46,20 +44,20 @@ class ProjectsSerializer(serializers.ModelSerializer):
             "image",
             "amount",
             "status",
+
             "group",
+            "group_id",
+
             "sponsor_university",
             "sponsor_country",
+
             "title",
             "topic",
             "description",
             "translation_statuses",
         ]
-        extra_kwargs = {
-            "group": {"required": False, "allow_null": True},
-        }
 
     def get_language(self):
-        # ViewSet contextdan keladi: context['language']
         lang = self.context.get("language")
         if not lang:
             request = self.context.get("request")
@@ -68,20 +66,23 @@ class ProjectsSerializer(serializers.ModelSerializer):
 
     def get_translation_statuses(self, obj):
         active_langs = set(obj.translations.values_list("language", flat=True))
-        # ✅ hamma tillarni qaytaramiz: bor bo‘lsa True, bo‘lmasa False
         return [{"code": code, "is_active": code in active_langs} for code, _ in LANGUAGE_CHOICES]
 
     def validate(self, attrs):
-        """
-        ✅ POST (create) bo‘lsa title/topic/description majburiy.
-        PATCH (update) bo‘lsa ixtiyoriy.
-        """
-        if self.instance is None:  # create
+        if self.instance is None:
             for f in ("title", "topic", "description"):
                 val = attrs.get(f)
                 if val is None or str(val).strip() == "":
                     raise serializers.ValidationError({f: f"{f} majburiy"})
         return attrs
+
+    def _apply_group_inputs(self, validated_data):
+        grp = validated_data.get("group", None)
+        gid = validated_data.pop("group_id", None)
+        if grp is None and gid:
+            validated_data["group_id"] = gid
+
+        return validated_data
 
     def create(self, validated_data):
         lang = self.get_language()
@@ -90,42 +91,44 @@ class ProjectsSerializer(serializers.ModelSerializer):
         topic = (validated_data.pop("topic") or "").strip()
         description = (validated_data.pop("description") or "").strip()
 
+        validated_data = self._apply_group_inputs(validated_data)
+
         project = Projects.objects.create(**validated_data)
 
-        # ✅ slug unique
         unique_slug = build_unique_slug(ProjectsTranslate, title)
-
         ProjectsTranslate.objects.create(
             projects=project,
             language=lang,
             title=title,
             topic=topic,
             description=description,
-            slug=unique_slug
+            slug=unique_slug,
         )
         return project
 
     def update(self, instance, validated_data):
         lang = self.get_language()
 
-        # write_only translation fields (PATCH’da kelishi mumkin)
+        # translate fieldlar (PATCH’da kelishi mumkin)
         title = validated_data.pop("title", None)
         topic = validated_data.pop("topic", None)
         description = validated_data.pop("description", None)
+
+        validated_data = self._apply_group_inputs(validated_data)
 
         # basic fields update
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
 
-        # ✅ faqat kelgan translation fieldlarni update qilamiz (boshqalar o‘chmaydi)
+        # translate update (faqat kelganlari)
         if title is not None or topic is not None or description is not None:
             tr, _ = ProjectsTranslate.objects.get_or_create(projects=instance, language=lang)
 
             if title is not None:
-                tr.title = title
-                # title o‘zgarsa slug ham yangilansin (unique qilib)
-                tr.slug = build_unique_slug(ProjectsTranslate, title)
+                title_clean = title.strip()
+                tr.title = title_clean
+                tr.slug = build_unique_slug(ProjectsTranslate, title_clean)
 
             if topic is not None:
                 tr.topic = topic
@@ -153,16 +156,17 @@ class ProjectsSerializer(serializers.ModelSerializer):
             "image": request.build_absolute_uri(instance.image.url) if request and instance.image else None,
             "amount": str(instance.amount) if instance.amount is not None else None,
             "status": instance.status,
-            "group_id": str(instance.group_id) if getattr(instance, "group_id", None) else None,
+            "group_id": str(instance.group_id) if instance.group_id else None,
+
             "translation_statuses": self.get_translation_statuses(instance),
 
             "sponsor_university": {
                 "id": str(instance.sponsor_university_id) if instance.sponsor_university_id else None,
-                "name": uni_detail.name if uni_detail else None
+                "name": uni_detail.name if uni_detail else None,
             },
             "sponsor_country": {
                 "id": str(instance.sponsor_country_id) if instance.sponsor_country_id else None,
-                "name": country_detail.name if country_detail else None
+                "name": country_detail.name if country_detail else None,
             },
         }
 
@@ -171,7 +175,7 @@ class ProjectsSerializer(serializers.ModelSerializer):
                 "title": detail.title,
                 "topic": detail.topic,
                 "description": detail.description,
-                "slug": detail.slug
+                "slug": detail.slug,
             })
         else:
             data.update({"title": None, "topic": None, "description": None, "slug": None})

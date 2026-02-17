@@ -99,7 +99,7 @@ def forgot_password(request):
 
 
 @api_view(["POST"])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def verify_reset_code(request):
     ser = VerifyResetCodeSerializer(data=request.data)
     ser.is_valid(raise_exception=True)
@@ -152,7 +152,7 @@ def reset_password(request):
 
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def register(request):
     ser = RegSerializer(data=request.data)
     if ser.is_valid():
@@ -167,7 +167,7 @@ def register(request):
 class DirectionCRUDViews(ModelViewSet):
     queryset = Direction.objects.all()
     serializer_class = DirectionSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     pagination_class = None
     search_fields =['name']
     def get_serializer_context(self):
@@ -178,7 +178,7 @@ class DirectionCRUDViews(ModelViewSet):
 class CountryViewSet(viewsets.ModelViewSet):
     queryset = Country.objects.all()
     serializer_class = CountrySerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     pagination_class = DefaultPagination
     search_fields =['name','description']
 
@@ -190,7 +190,7 @@ class CountryViewSet(viewsets.ModelViewSet):
 class GroupViewset(ModelViewSet):
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     pagination_class = DefaultPagination
     parser_classes = [MultiPartParser, FormParser]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -207,7 +207,7 @@ class GroupViewset(ModelViewSet):
 class UniversityViews(ModelViewSet):
     queryset = University.objects.all()
     serializer_class = UniversitySerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     pagination_class = DefaultPagination
     def get_serializer_context(self):
         contex = super().get_serializer_context()
@@ -215,7 +215,7 @@ class UniversityViews(ModelViewSet):
         return contex
 
 @api_view(["PATCH", "GET"])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def groupactiveviews(request, group_id):
     try:
         group = Group.objects.get(id=group_id)
@@ -241,7 +241,7 @@ def groupactiveviews(request, group_id):
 class MemberViewset(ModelViewSet):
     queryset = Member.objects.all()
     serializer_class = MemberSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     pagination_class = DefaultPagination
     parser_classes = [MultiPartParser, FormParser, JSONParser]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -264,7 +264,7 @@ class MemberViewset(ModelViewSet):
 class PublicationViewSet(ModelViewSet):
     queryset = Publication.objects.all().order_by('created_at')
     serializer_class = PublicationSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     pagination_class = DefaultPagination
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -279,7 +279,7 @@ class PublicationViewSet(ModelViewSet):
 class PublishViewset(ModelViewSet):
     queryset = Publisher.objects.all()
     serializer_class = PublisherSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     pagination_class = DefaultPagination
 
     def get_serializer_context(self):
@@ -288,28 +288,41 @@ class PublishViewset(ModelViewSet):
         return context
 
 class ProjectsViewSet(ModelViewSet):
-    queryset = Projects.objects.all()
+    queryset = Projects.objects.all().select_related(
+        "group",
+        "sponsor_university",
+        "sponsor_country",
+    ).prefetch_related(
+        "translations",
+        "sponsor_university__details",
+        "sponsor_country__details",
+    )
+
     serializer_class = ProjectsSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     pagination_class = DefaultPagination
+
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = ProjectsFilter
+
     search_fields = [
-        'translations__title',
-        'translations__topic',
-        'translations__description',
+        "translations__title",
+        "translations__topic",
+        "translations__description",
     ]
-    ordering_fields = ['amount', 'start_date', 'end_date', 'id']
-    ordering = ['-id']
+
+    ordering_fields = ["amount", "start_date", "end_date", "id"]
+    ordering = ["-id"]
+
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        context['language'] = self.request.headers.get('Accept-Language', 'uz')
+        context["language"] = self.request.headers.get("Accept-Language", "uz")
         return context
 
 class InterestsViewSet(ModelViewSet):
     queryset = Interests.objects.all()
     serializer_class = InterestsSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     pagination_class = None
 
     def get_serializer_context(self):
@@ -533,7 +546,7 @@ class ConferencesSeminarsViewSet(ModelViewSet):
 class SliderGroupViewSet(ModelViewSet):
     queryset = SliderGroup.objects.all()
     serializer_class = SliderGroupSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     pagination_class = DefaultPagination
     parser_classes = [MultiPartParser, FormParser]
 
@@ -552,7 +565,7 @@ class SliderGroupViewSet(ModelViewSet):
 class GroupMediaViewSet(ModelViewSet):
     queryset = GroupMedia.objects.select_related("group").all().order_by("-id")
     serializer_class = MediaSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     pagination_class = DefaultPagination
     parser_classes = [MultiPartParser, FormParser]
 
@@ -606,7 +619,7 @@ class GroupMediaViewSet(ModelViewSet):
 class SosialLinkViewset(ModelViewSet):
     queryset = SosialLink.objects.all()
     serializer_class = SocialLinkSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     pagination_class = None
     def get_queryset(self):
         qs = super().get_queryset()
@@ -619,26 +632,30 @@ class SosialLinkViewset(ModelViewSet):
 
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def statictika(request):
     group_count = Group.objects.count()
     member_count = Member.objects.count()
     country_count = Country.objects.count()
     publication_count = Publication.objects.count()
     news_count = NewsActivities.objects.count()
-    confiresnising_count = ConferencesSeminars.objects.count()
+    conference_count = ConferencesSeminars.objects.count()
+    projects_count = Projects.objects.count()
+    univer_count = University.objects.count()
     return Response({
         "group_count": group_count,
         "member_count": member_count,
         "country_count": country_count,
         "publication_count": publication_count,
         "news_count": news_count,
-        "confiresnising_count": confiresnising_count
+        "conference_count": conference_count,
+        "projects_count":projects_count,
+        "university_count":univer_count,
     },status=status.HTTP_200_OK)
 
 
 @api_view(['PATCH'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def email_update(request,pk):
     try :
         user = CustomerUser.objects.get(pk=pk)
@@ -652,7 +669,7 @@ def email_update(request,pk):
         return Response(ser.data)
 
 class ContactView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     def get(self, request):
         group_id = request.query_params.get("group_id")
         if not group_id:
@@ -664,7 +681,7 @@ class ContactView(APIView):
         return Response(serializer.data)
 
 class MemberStatusView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def patch(self, request, pk):
 

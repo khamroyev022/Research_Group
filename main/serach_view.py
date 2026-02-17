@@ -74,7 +74,6 @@ def global_search(request):
             "type": "group",
             "id": str(obj.id),
             "title": d.name if d else None,
-            "description": (d.description if d else None),
             "slug": (d.slug if d else None),
         })
 
@@ -99,7 +98,6 @@ def global_search(request):
             "type": "member",
             "id": str(obj.id),
             "title": d.full_name if d else obj.email,
-            "description": d.about if d else None,
             "slug": d.slug if d else None,
             "group_id": str(obj.group_id) if obj.group_id else None,
         })
@@ -124,7 +122,6 @@ def global_search(request):
             "type": "publication",
             "id": str(obj.id),
             "title": d.title if d else None,
-            "description": d.topic if d else None,
             "slug": d.slug if d else None,
             "group_id": str(obj.group_id) if obj.group_id else None,
             "url": obj.url,
@@ -149,12 +146,10 @@ def global_search(request):
             "type": "project",
             "id": str(obj.id),
             "title": tr.title if tr else None,
-            "description": tr.description if tr else None,
             "slug": tr.slug if tr else None,
             "group_id": str(obj.group_id) if obj.group_id else None,
         })
 
-    # 5) Achivment (related_name='achivment')
     ach_qs = (
         Achivment.objects
         .select_related("group")
@@ -169,15 +164,13 @@ def global_search(request):
     for obj in ach_qs[:50]:
         tr = get_active_fallback_detail(obj.achivment.all(), lang)
         results.append({
-            "type": "achivment",
+            "type": "achievement",
             "id": str(obj.id),
             "title": tr.title if tr else None,
-            "description": tr.description if tr else None,
             "slug": tr.slug if tr else None,
             "group_id": str(obj.group_id) if obj.group_id else None,
         })
 
-    # 6) Partnership (related_name='partnereship')
     part_qs = (
         Partnership.objects
         .select_related("group")
@@ -195,12 +188,10 @@ def global_search(request):
             "type": "partnership",
             "id": str(obj.id),
             "title": tr.title if tr else None,
-            "description": tr.description if tr else None,
             "slug": tr.slug if tr else None,
             "group_id": str(obj.group_id) if obj.group_id else None,
         })
 
-    # 7) Resources (related_name='resources')
     res_qs = (
         Resources.objects
         .select_related("group")
@@ -218,12 +209,11 @@ def global_search(request):
             "type": "resources",
             "id": str(obj.id),
             "title": tr.title if tr else None,
-            "description": tr.description if tr else None,
             "slug": tr.slug if tr else None,
             "group_id": str(obj.group_id) if obj.group_id else None,
         })
 
-    # 8) ResearchStudent (related_name='reserchStudent')
+
     rs_qs = (
         ReserchStudent.objects
         .select_related("group")
@@ -241,7 +231,6 @@ def global_search(request):
             "type": "research_student",
             "id": str(obj.id),
             "title": tr.title if tr else None,
-            "description": tr.description if tr else None,
             "slug": tr.slug if tr else None,
             "group_id": str(obj.group_id) if obj.group_id else None,
         })
@@ -264,12 +253,10 @@ def global_search(request):
             "type": "news",
             "id": str(obj.id),
             "title": tr.title if tr else None,
-            "description": tr.description if tr else None,
             "slug": tr.slug if tr else None,
             "group_id": str(obj.group_id) if obj.group_id else None,
         })
 
-    # 10) ConferencesSeminars (related_name='conferencesseminars')
     conf_qs = (
         ConferencesSeminars.objects
         .select_related("group")
@@ -287,13 +274,11 @@ def global_search(request):
             "type": "conference",
             "id": str(obj.id),
             "title": tr.title if tr else None,
-            "description": tr.description if tr else None,
             "slug": tr.slug if tr else None,
             "group_id": str(obj.group_id) if obj.group_id else None,
             "start_date": str(obj.start_date),
         })
 
-    # (ixtiyoriy) natijalarni "title" bo'yicha tartiblash
     results.sort(key=lambda x: (x.get("title") or "").lower())
 
     total, page_items = _paginate_list(results, page, page_size)

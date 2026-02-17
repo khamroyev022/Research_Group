@@ -210,7 +210,7 @@ class MemberSerializer(serializers.ModelSerializer):
             'university', 'country', 'group',
             'orcid', 'google_scholar', 'scopus',
             'full_name', 'affiliation', 'about',
-            'translation_statuses', 'status'
+            'translation_statuses', 'status', 'about'
         ]
 
     def get_language(self):

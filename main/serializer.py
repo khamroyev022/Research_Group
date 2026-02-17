@@ -595,7 +595,7 @@ class MemberGetSerializer(serializers.ModelSerializer):
     university_name = serializers.SerializerMethodField()
     country_name = serializers.SerializerMethodField()
     group_name = serializers.SerializerMethodField()
-
+    slug = serializers.SerializerMethodField()
     class Meta:
         model = Member
         fields = [
@@ -618,10 +618,10 @@ class MemberGetSerializer(serializers.ModelSerializer):
             "university_name",
             "country_name",
             "group_name",
+            "slug",
         ]
 
     def _lang(self):
-        # headerdan olsangiz ham bo‘ladi, contextdan ham
         request = self.context.get("request")
         if request:
             return request.headers.get("Accept-Language", "uz")
@@ -662,6 +662,12 @@ class MemberGetSerializer(serializers.ModelSerializer):
         lang = self._lang()
         d = get_fallback_detail(obj.group.details.all(), lang)
         return d.name if d else None
+
+    def get_slug(self, obj):
+        lang = self._lang()
+        d = get_fallback_detail(obj.details.all(), lang)
+        return d.slug if d else None
+
 
 class MembersPost(serializers.ModelSerializer):
     class Meta:

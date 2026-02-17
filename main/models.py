@@ -283,7 +283,7 @@ class Projects(models.Model):
     sponsor_university = models.ForeignKey(University,on_delete=models.CASCADE)
     sponsor_country = models.ForeignKey(Country, on_delete=models.CASCADE)
     status = models.BooleanField()
-    group = models.ForeignKey(Group, on_delete=models.CASCADE,related_name='preoject',null=True)
+    group = models.ForeignKey(Group, on_delete=models.PROTECT,related_name='project')
 
 
 class ProjectsTranslate(models.Model):
