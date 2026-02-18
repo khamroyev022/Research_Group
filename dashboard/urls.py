@@ -1,6 +1,6 @@
 from rest_framework.routers import DefaultRouter
 from django.urls import path
-
+from .log_api import *
 from .views import *
 
 router = DefaultRouter()
@@ -36,5 +36,6 @@ urlpatterns =[
     path('email-update/<uuid:pk>', email_update),
     path('contact-members/',ContactView.as_view()),
     path('member-status-change/<uuid:pk>/',MemberStatusView.as_view()),
+    path('admin-log/',LogListAPIView.as_view()),
 
     ] + router.urls

@@ -47,10 +47,8 @@ class ProjectsSerializer(serializers.ModelSerializer):
 
             "group",
             "group_id",
-
             "sponsor_university",
             "sponsor_country",
-
             "title",
             "topic",
             "description",
@@ -145,9 +143,11 @@ class ProjectsSerializer(serializers.ModelSerializer):
         lang = self.get_language()
 
         detail = get_fallback_detail(instance.translations, lang)
-
-        uni_detail = get_fallback_detail(instance.sponsor_university.details, lang) if instance.sponsor_university_id else None
-        country_detail = get_fallback_detail(instance.sponsor_country.details, lang) if instance.sponsor_country_id else None
+        uni_detail = get_fallback_detail(instance.sponsor_university.details,
+                                         lang) if instance.sponsor_university_id else None
+        country_detail = get_fallback_detail(instance.sponsor_country.details,
+                                             lang) if instance.sponsor_country_id else None
+        group_detail = get_fallback_detail(instance.group.details, lang) if instance.group_id else None  # ✅ yangi qator
 
         data = {
             "id": str(instance.id),
@@ -156,10 +156,13 @@ class ProjectsSerializer(serializers.ModelSerializer):
             "image": request.build_absolute_uri(instance.image.url) if request and instance.image else None,
             "amount": str(instance.amount) if instance.amount is not None else None,
             "status": instance.status,
-            "group_id": str(instance.group_id) if instance.group_id else None,
+
+            "group": {
+                "id": str(instance.group_id) if instance.group_id else None,
+                "name": group_detail.name if group_detail else None,
+            },
 
             "translation_statuses": self.get_translation_statuses(instance),
-
             "sponsor_university": {
                 "id": str(instance.sponsor_university_id) if instance.sponsor_university_id else None,
                 "name": uni_detail.name if uni_detail else None,
@@ -169,7 +172,6 @@ class ProjectsSerializer(serializers.ModelSerializer):
                 "name": country_detail.name if country_detail else None,
             },
         }
-
         if detail:
             data.update({
                 "title": detail.title,
