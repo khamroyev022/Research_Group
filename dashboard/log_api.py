@@ -1,5 +1,6 @@
 import re
 from pathlib import Path
+from datetime import datetime, timedelta
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
@@ -16,6 +17,7 @@ LOG_PATTERN = re.compile(
     r"User=(?P<user>\S+)\s+\|\s+"
     r"IP=(?P<ip>\S+)\s+\|\s+"
 )
+
 
 def parse_logs():
     if not LOG_FILE.exists():
@@ -46,14 +48,26 @@ def parse_logs():
 
 class LogListAPIView(APIView):
     permission_classes = [AllowAny]
-    pagination_class = DefaultPagination
+
     def get(self, request):
         logs = parse_logs()
+        three_days_ago = datetime.now() - timedelta(days=3)
+        filtered_logs = []
+        for log in logs:
+            try:
+                log_datetime = datetime.strptime(log["datetime"], "%Y-%m-%d %H:%M:%S,%f")
+                if log_datetime >= three_days_ago:
+                    filtered_logs.append(log)
+            except:
+                continue
+
+        logs = filtered_logs
         level = request.query_params.get("level")
         method = request.query_params.get("method")
         status = request.query_params.get("status")
         user = request.query_params.get("user")
         date = request.query_params.get("date")
+
         if level:
             logs = [l for l in logs if l["level"].upper() == level.upper()]
         if method:
@@ -64,6 +78,7 @@ class LogListAPIView(APIView):
             logs = [l for l in logs if l["user"].lower() == user.lower()]
         if date:
             logs = [l for l in logs if l["datetime"].startswith(date)]
+
         paginator = DefaultPagination()
         paginated = paginator.paginate_queryset(logs, request)
 
