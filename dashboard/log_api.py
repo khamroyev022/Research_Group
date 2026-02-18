@@ -79,6 +79,8 @@ class LogListAPIView(APIView):
         if date:
             logs = [l for l in logs if l["datetime"].startswith(date)]
 
+        logs = sorted(logs, key=lambda l: l["datetime"], reverse=True)
+
         paginator = DefaultPagination()
         paginated = paginator.paginate_queryset(logs, request)
 
