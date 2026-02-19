@@ -23,7 +23,7 @@ class APILogMiddleware:
             if request.body:
                 body_data = json.loads(request.body.decode("utf-8"))
         except:
-            body_data = str(request.body[:200])  # fallback
+            body_data = str(request.body[:200])
 
         response = self.get_response(request)
         duration = time.time() - start
