@@ -512,3 +512,31 @@ class SosialLink(models.Model):
     def __str__(self):
         return self.name
 
+from django.core.exceptions import ValidationError
+
+class SaytDetail(models.Model):
+    id  = models.UUIDField(primary_key=True, editable=False, default=uuid.uuid4)
+    phone = models.CharField(max_length=13)
+    email = models.EmailField(null=True,blank=True)
+    facebook = models.URLField(null=True,blank=True)
+    twitter = models.URLField(null=True,blank=True)
+    instagram = models.URLField(null=True,blank=True)
+    linkedin = models.URLField(null=True,blank=True)
+    telegram = models.URLField(null=True,blank=True)
+    created_ad = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if not self.pk and SaytDetail.objects.exists():
+            raise ValidationError("Faqat bitta SaytDetail bo'lishi mumkin.")
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.phone
+
+class SliderSayt(models.Model):
+    id = models.UUIDField(primary_key=True, editable=False, default=uuid.uuid4)
+    image = models.ImageField(upload_to='media/slider/')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'slidersayt'

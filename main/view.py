@@ -1,0 +1,694 @@
+from rest_framework.response import Response
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
+from rest_framework.views import APIView
+from rest_framework.exceptions import ValidationError
+from dashboard.serializers.Interest_serializer import InterestsSerializer
+from dashboard.serializers.serializer import NewsActivitiesSerializer
+from .Pagnitions import DefaultPagination, GroupPaginatsion, PublicationHome, NewsPaginatsion
+from .serializer import *
+from rest_framework import status
+from rest_framework.viewsets import ReadOnlyModelViewSet
+
+
+# ──────────────────────────────────────────────
+# HELPER
+# ──────────────────────────────────────────────
+
+def get_active_fallback_detail(qs, lang, default_lang="uz"):
+    model = qs.model
+    has_is_active = any(f.name == "is_active" for f in model._meta.fields)
+    qs_active = qs.filter(is_active=True) if has_is_active else qs
+
+    if lang:
+        d = qs_active.filter(language=lang).first()
+        if d:
+            return d
+
+    if default_lang and lang != default_lang:
+        d = qs_active.filter(language=default_lang).first()
+        if d:
+            return d
+
+    return None  # ← qs.first() o'rniga None
+
+
+def filter_none(data):
+    return [item for item in data if item is not None]
+
+
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def direction_list_list(request):
+    lang = request.headers.get("Accept-Language", "uz")
+    qs = Direction.objects.all().prefetch_related("details")
+    ser = DirectionSerializer(qs, many=True, context={"language": lang, "request": request})
+    return Response({
+        "language": lang,
+        "data": filter_none(ser.data)
+    }, status=status.HTTP_200_OK)
+
+
+# ──────────────────────────────────────────────
+# GROUP
+# ──────────────────────────────────────────────
+
+class GroupViewSet(ReadOnlyModelViewSet):
+    serializer_class = GroupSerializer
+    permission_classes = [AllowAny]
+    pagination_class = None
+
+    def get_queryset(self):
+        qs = Group.objects.all().select_related("direction").prefetch_related("details")
+
+        direction_id = (
+            self.request.query_params.get("direction_id")
+            or self.request.query_params.get("direction")
+        )
+        limit_param = self.request.query_params.get("limit")
+
+        if direction_id:
+            direction_id = direction_id.strip().rstrip("/")
+            qs = qs.filter(direction_id=direction_id)
+
+        if limit_param:
+            try:
+                limit_val = int(limit_param)
+                if limit_val > 0:
+                    qs = qs[:limit_val]
+            except ValueError:
+                pass
+        else:
+            if not direction_id:
+                qs = qs[:8]
+
+        return qs
+
+    def list(self, request, *args, **kwargs):
+        direction_id = request.query_params.get("direction_id") or request.query_params.get("direction")
+        limit_param = request.query_params.get("limit")
+
+        qs = self.get_queryset()
+        ser = self.get_serializer(qs, many=True)
+        data = filter_none(ser.data)
+
+        return Response({
+            "direction_id": direction_id.strip().rstrip("/") if direction_id else None,
+            "limit": int(limit_param) if (limit_param and limit_param.isdigit()) else (8 if not direction_id else None),
+            "count": len(data),
+            "data": data
+        })
+
+
+
+
+class MediaGroupViewSet(ReadOnlyModelViewSet):
+    queryset = GroupMedia.objects.all().select_related("group").prefetch_related("group__details")
+    serializer_class = MediaSerializer
+    permission_classes = [AllowAny]
+    pagination_class = DefaultPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["group"]
+
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def home_group_list(request):
+    group_id = request.query_params.get("group_id")
+    lang = request.headers.get("Accept-Language", "uz")
+
+    group_id_clean = group_id.strip().rstrip("/") if group_id else None
+
+    group_data = None
+    if group_id_clean:
+        group_obj = Group.objects.filter(id=group_id_clean).first()
+        if group_obj:
+            g_tr = get_active_fallback_detail(group_obj.details.all(), lang)
+            if g_tr:
+                group_data = {
+                    "id": str(group_obj.id),
+                    "name": g_tr.name,
+                    "image": request.build_absolute_uri(group_obj.image.url) if group_obj.image else None,
+                    "created_at": group_obj.created,
+                    "description": g_tr.description,
+                    "slug": g_tr.slug,
+                }
+
+    slider_qs = SliderGroup.objects.all().select_related("group")
+    if group_id_clean:
+        slider_qs = slider_qs.filter(group_id=group_id_clean)
+    slider_ser = SlidergroupSerializer(slider_qs, many=True, context={"request": request})
+
+    ach_data = None
+    achivment_obj = Achivment.objects.all()
+    if group_id_clean:
+        achivment_obj = achivment_obj.filter(group_id=group_id_clean)
+    achivment_obj = achivment_obj.first()
+    if achivment_obj:
+        tr = get_fallback_detail(achivment_obj.achivment, lang)
+        if tr:
+            ach_data = {
+                "id": str(achivment_obj.id),
+                "image": request.build_absolute_uri(achivment_obj.image.url) if achivment_obj.image else None,
+                "created_at": achivment_obj.created_at,
+                "title": tr.title,
+                "slug": tr.slug,
+            }
+
+    partner_data = None
+    partner_obj = Partnership.objects.all()
+    if group_id_clean:
+        partner_obj = partner_obj.filter(group_id=group_id_clean)
+    partner_obj = partner_obj.first()
+    if partner_obj:
+        tg = get_fallback_detail(partner_obj.partnereship, lang)
+        if tg:
+            partner_data = {
+                "id": str(partner_obj.id),
+                "image": request.build_absolute_uri(partner_obj.image.url) if partner_obj.image else None,
+                "created_at": partner_obj.created_at,
+                "title": tg.title,
+                "slug": tg.slug,
+            }
+
+    student_data = None
+    student_obj = ReserchStudent.objects.all()
+    if group_id_clean:
+        student_obj = student_obj.filter(group_id=group_id_clean)
+    student_obj = student_obj.first()
+    if student_obj:
+        tg = get_fallback_detail(student_obj.reserchStudent, lang)
+        if tg:
+            student_data = {
+                "id": str(student_obj.id),
+                "image": request.build_absolute_uri(student_obj.image.url) if student_obj.image else None,
+                "created_at": student_obj.created_at,
+                "title": tg.title,
+                "slug": tg.slug,
+            }
+
+    resours_data = None
+    resours_obj = Resources.objects.all()
+    if group_id_clean:
+        resours_obj = resours_obj.filter(group_id=group_id_clean)
+    resours_obj = resours_obj.first()
+    if resours_obj:
+        tr = get_fallback_detail(resours_obj.resources, lang)
+        if tr:
+            resours_data = {
+                "id": str(resours_obj.id),
+                "image": request.build_absolute_uri(resours_obj.image.url) if resours_obj.image else None,
+                "created_at": resours_obj.created_at,
+                "title": tr.title,
+                "slug": tr.slug,
+            }
+
+    return Response({
+        "group_id": group_id_clean or "",
+        "group": group_data,
+        "data": {
+            "slider": filter_none(slider_ser.data),
+            "achievement": ach_data,
+            "partnership": partner_data,
+            "research-student": student_data,
+            "resources": resours_data,
+        }
+    }, status=status.HTTP_200_OK)
+
+
+
+
+class NewsViewSet(ReadOnlyModelViewSet):
+    permission_classes = [AllowAny]
+    pagination_class = PublicationHome
+
+    lookup_field = "slug"
+    lookup_url_kwarg = "slug"
+
+    def get_queryset(self):
+        group_id = self.request.query_params.get("group_id")
+        qs = (
+            NewsActivities.objects
+            .select_related("group")
+            .prefetch_related("newsactive", "group__details")
+            .order_by("-created_at")
+        )
+        if group_id:
+            qs = qs.filter(group_id=group_id.strip().rstrip("/"))
+        return qs
+
+    def list(self, request, *args, **kwargs):
+        qs = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(qs)
+        if page is not None:
+            ser = NewSerializerHome(page, many=True, context={"request": request})
+            response = self.get_paginated_response(filter_none(ser.data))
+            return response
+
+        ser = NewSerializerHome(qs, many=True, context={"request": request})
+        return Response({
+            "success": True,
+            "message": "OK",
+            "data": filter_none(ser.data),
+            "errors": None
+        }, status=status.HTTP_200_OK)
+
+    def retrieve(self, request, *args, **kwargs):
+        slug = kwargs.get(self.lookup_url_kwarg or self.lookup_field)
+        lang = request.headers.get("Accept-Language", "uz")
+
+        detail = (
+            NewsActivitiesDetail.objects
+            .filter(slug=slug, language=lang)
+            .select_related("newsdetail")
+            .first()
+        )
+        if not detail and lang != "uz":
+            detail = (
+                NewsActivitiesDetail.objects
+                .filter(slug=slug, language="uz")
+                .select_related("newsdetail")
+                .first()
+            )
+        if not detail:
+            return Response({"success": False, "message": "Topilmadi", "data": None, "errors": None}, status=404)
+
+        ser = NewsSerializer(detail.newsdetail, context={"request": request})
+        return Response({"success": True, "message": "OK", "data": ser.data, "errors": None})
+
+
+
+
+class ConferencesViewSet(ReadOnlyModelViewSet):
+    permission_classes = [AllowAny]
+    pagination_class = PublicationHome
+
+    lookup_field = "slug"
+    lookup_url_kwarg = "slug"
+
+    def get_queryset(self):
+        group_id = self.request.query_params.get("group_id")
+        qs = (
+            ConferencesSeminars.objects
+            .select_related("group")
+            .prefetch_related("conferencesseminars", "group__details")
+            .order_by("-created_at")
+        )
+        if group_id:
+            qs = qs.filter(group_id=group_id.strip().rstrip("/"))
+        return qs
+
+    def list(self, request, *args, **kwargs):
+        qs = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(qs)
+        if page is not None:
+            ser = ConferensiaHomeSerializer(page, many=True, context={"request": request})
+            return self.get_paginated_response(filter_none(ser.data))
+
+        ser = ConferensiaHomeSerializer(qs, many=True, context={"request": request})
+        return Response({
+            "success": True, "message": "OK",
+            "data": filter_none(ser.data), "errors": None
+        }, status=status.HTTP_200_OK)
+
+    def retrieve(self, request, *args, **kwargs):
+        slug = kwargs.get(self.lookup_url_kwarg or self.lookup_field)
+        lang = request.headers.get("Accept-Language", "uz")
+
+        detail = (
+            ConferencesSeminarsDetail.objects
+            .filter(slug=slug, language=lang)
+            .select_related("conferencesseminars")
+            .first()
+        )
+        if not detail and lang != "uz":
+            detail = (
+                ConferencesSeminarsDetail.objects
+                .filter(slug=slug, language="uz")
+                .select_related("conferencesseminars")
+                .first()
+            )
+        if not detail:
+            return Response({"success": False, "message": "Topilmadi", "data": None, "errors": None}, status=404)
+
+        ser = ConferensiaDetailSerializer(detail.conferencesseminars, context={"request": request})
+        return Response({"success": True, "message": "OK", "data": ser.data, "errors": None})
+
+
+
+
+class MemberByGroupView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        group_id = request.query_params.get("group_id")
+        if not group_id:
+            return Response({"error": "group_id param berilmadi"}, status=400)
+
+        qs = (
+            Member.objects
+            .filter(group_id=group_id.strip().rstrip("/"), status="completed")
+            .select_related("group", "country", "university")
+            .prefetch_related("details", "group__details", "country__details", "university__details")
+        )
+        ser = MemberGetSerializer(qs, many=True, context={"request": request})
+        return Response(filter_none(ser.data))
+
+
+class MemberCreateApi(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        lang = request.headers.get("Accept-Language", "uz")
+        email = request.data.get("email")
+        phone = request.data.get("phone")
+        image = request.FILES.get("image")
+        group_id = request.data.get("group")
+        full_name = request.data.get("full_name")
+        affiliation = request.data.get("affiliation")
+        about = request.data.get("about")
+
+        if not email or not phone or not group_id or not full_name:
+            return Response({"error": "Majburiy field yetishmayapti"}, status=400)
+
+        try:
+            group = Group.objects.get(id=group_id)
+        except Group.DoesNotExist:
+            return Response({"error": "Group topilmadi"}, status=404)
+
+        member = Member.objects.create(email=email, phone=phone, image=image, group=group)
+        MemberDetail.objects.create(
+            member=member, language=lang,
+            full_name=full_name, affiliation=affiliation, about=about
+        )
+        return Response({"message": "Member yaratildi"}, status=status.HTTP_201_CREATED)
+
+
+class MemberDetailView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, slug):
+        detail = MemberDetail.objects.select_related("member").filter(slug=slug).first()
+        if not detail:
+            return Response({"error": "Member topilmadi"}, status=404)
+
+        ser = MemberDetailGetSerializer(detail.member, context={"request": request})
+        if ser.data is None:
+            return Response({"error": "Topilmadi"}, status=404)
+        return Response(ser.data)
+
+
+
+
+class InterestView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        group_id = request.query_params.get("group_id")
+        if not group_id:
+            return Response({"error": "group_id param berilmadi"}, status=400)
+
+        obj = Interests.objects.filter(group_id=group_id.strip().rstrip("/")).first()
+        if not obj:
+            return Response({"error": "Interest mavjud emas"}, status=404)
+
+        ser = InterestsSerializer(obj, context={"request": request})
+        if ser.data is None:
+            return Response({"error": "Topilmadi"}, status=404)
+        return Response(ser.data)
+
+
+
+
+class ProjectsViewSet(ReadOnlyModelViewSet):
+    permission_classes = [AllowAny]
+    serializer_class = ProjectsSerializer
+    pagination_class = GroupPaginatsion
+
+    lookup_field = "slug"
+    lookup_url_kwarg = "slug"
+
+    def get_queryset(self):
+        group_id = self.request.query_params.get("group_id")
+        status_param = self.request.query_params.get("status")
+
+        qs = (
+            Projects.objects
+            .select_related("group", "sponsor_university", "sponsor_country")
+            .prefetch_related(
+                "translations",
+                "group__details",
+                "sponsor_university__details",
+                "sponsor_country__details"
+            )
+            .order_by("-start_date")
+        )
+
+        if group_id:
+            qs = qs.filter(group_id=group_id.strip().rstrip("/"))
+
+        if status_param is not None:
+            s = status_param.lower()
+            if s in ("true", "1", "yes"):
+                qs = qs.filter(status=True)
+            elif s in ("false", "0", "no"):
+                qs = qs.filter(status=False)
+
+        return qs
+
+    def list(self, request, *args, **kwargs):
+        qs = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(qs)
+        if page is not None:
+            ser = self.get_serializer(page, many=True)
+            return self.get_paginated_response(filter_none(ser.data))
+
+        ser = self.get_serializer(qs, many=True)
+        return Response({
+            "success": True, "message": "OK",
+            "data": filter_none(ser.data), "errors": None
+        }, status=status.HTTP_200_OK)
+
+    def retrieve(self, request, *args, **kwargs):
+        slug = kwargs.get(self.lookup_url_kwarg or self.lookup_field)
+        lang = request.headers.get("Accept-Language", "uz")
+
+        detail = (
+            ProjectsTranslate.objects
+            .filter(slug=slug, language=lang)
+            .select_related("projects")
+            .first()
+        )
+        if not detail and lang != "uz":
+            detail = (
+                ProjectsTranslate.objects
+                .filter(slug=slug, language="uz")
+                .select_related("projects")
+                .first()
+            )
+        if not detail:
+            return Response({"success": False, "message": "Topilmadi", "data": None, "errors": None}, status=404)
+
+        ser = self.get_serializer(detail.projects)
+        return Response({"success": True, "message": "OK", "data": ser.data, "errors": None})
+
+
+
+
+class MediaViews(APIView):
+    pagination_class = PublicationHome
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        group_id = request.query_params.get("group_id")
+        qs = GroupMedia.objects.all()
+        if group_id:
+            qs = qs.filter(group_id=group_id.strip().rstrip("/"))
+
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(qs, request, view=self)
+        ser = MediaSerializer(page if page is not None else qs, many=True, context={"request": request})
+        return paginator.get_paginated_response(ser.data)
+
+
+
+
+class SocialLinkViewSet(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        group_id = request.query_params.get("group_id")
+        if not group_id:
+            return Response({"error": "group_id param berilmadi"}, status=400)
+
+        qs = SosialLink.objects.filter(group_id=group_id.strip().rstrip("/"))
+        ser = SociallinkSerializer(qs, many=True, context={"request": request})
+        return Response(ser.data)
+
+
+
+
+class PublicationViewSet(ReadOnlyModelViewSet):
+    permission_classes = [AllowAny]
+    pagination_class = PublicationHome
+
+    lookup_field = "slug"
+    lookup_url_kwarg = "slug"
+
+    def get_queryset(self):
+        group_id = self.request.query_params.get("group_id")
+        qs = (
+            Publication.objects
+            .select_related("publisher", "group")
+            .prefetch_related("details", "members", "members__details", "group__details")
+            .order_by("-created_at")
+        )
+        if group_id:
+            qs = qs.filter(group_id=group_id.strip().rstrip("/"))
+        return qs
+
+    def list(self, request, *args, **kwargs):
+        qs = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(qs)
+        if page is not None:
+            ser = PublicationHomeSerializer(page, many=True, context={"request": request})
+            return self.get_paginated_response(filter_none(ser.data))
+
+        ser = PublicationHomeSerializer(qs, many=True, context={"request": request})
+        return Response({
+            "success": True, "message": "OK",
+            "data": filter_none(ser.data), "errors": None
+        }, status=status.HTTP_200_OK)
+
+    def retrieve(self, request, *args, **kwargs):
+        slug = kwargs.get(self.lookup_url_kwarg or self.lookup_field)
+        lang = request.headers.get("Accept-Language", "uz")
+
+        detail = (
+            PublicationDetail.objects
+            .filter(slug=slug, language=lang)
+            .select_related("publication")
+            .first()
+        )
+        if not detail and lang != "uz":
+            detail = (
+                PublicationDetail.objects
+                .filter(slug=slug, language="uz")
+                .select_related("publication")
+                .first()
+            )
+        if not detail:
+            return Response({"success": False, "message": "Topilmadi", "data": None, "errors": None}, status=404)
+
+        ser = PublicationDetailSerializer(detail.publication, context={"request": request})
+        return Response({"success": True, "message": "OK", "data": ser.data, "errors": None})
+
+
+
+
+class GlobalSlugAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        slug = request.query_params.get("slug")
+        lang = request.headers.get("Accept-Language", "uz")
+
+        if not slug:
+            return Response({"error": "slug required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        tr = AchivmentTranslation.objects.filter(slug=slug, language=lang).select_related("achivment", "achivment__group").first()
+        if not tr:
+            tr = AchivmentTranslation.objects.filter(slug=slug).select_related("achivment", "achivment__group").first()
+        if tr:
+            ach = tr.achivment
+            return Response({
+                "type": "achivment",
+                "id": str(ach.id),
+                "group_id": str(ach.group_id),
+                "image": request.build_absolute_uri(ach.image.url) if ach.image else None,
+                "created_at": ach.created_at,
+                "detail": {"title": tr.title, "description": tr.description, "slug": tr.slug, "language": tr.language}
+            })
+
+        tr = PartnershipDetail.objects.filter(slug=slug, language=lang).select_related("partnership", "partnership__group").first()
+        if not tr:
+            tr = PartnershipDetail.objects.filter(slug=slug).select_related("partnership", "partnership__group").first()
+        if tr:
+            p = tr.partnership
+            return Response({
+                "type": "partnership",
+                "id": str(p.id),
+                "group_id": str(p.group_id),
+                "image": request.build_absolute_uri(p.image.url) if p.image else None,
+                "created_at": p.created_at,
+                "detail": {"title": tr.title, "description": tr.description, "slug": tr.slug, "language": tr.language}
+            })
+
+        tr = ReserchStudentDatail.objects.filter(slug=slug, language=lang).select_related("reserchStudent", "reserchStudent__group").first()
+        if not tr:
+            tr = ReserchStudentDatail.objects.filter(slug=slug).select_related("reserchStudent", "reserchStudent__group").first()
+        if tr:
+            rs = tr.reserchStudent
+            return Response({
+                "type": "reserch_student",
+                "id": str(rs.id),
+                "group_id": str(rs.group_id),
+                "image": request.build_absolute_uri(rs.image.url) if rs.image else None,
+                "created_at": rs.created_at,
+                "detail": {"title": tr.title, "description": tr.description, "slug": tr.slug, "language": tr.language}
+            })
+
+
+        tr = ResourcesDatail.objects.filter(slug=slug, language=lang).select_related("resources", "resources__group").first()
+        if not tr:
+            tr = ResourcesDatail.objects.filter(slug=slug).select_related("resources", "resources__group").first()
+        if tr:
+            r = tr.resources
+            return Response({
+                "type": "resources",
+                "id": str(r.id),
+                "group_id": str(r.group_id),
+                "image": request.build_absolute_uri(r.image.url) if r.image else None,
+                "created_at": r.created_at,
+                "detail": {"title": tr.title, "description": tr.description, "slug": tr.slug, "language": tr.language}
+            })
+
+        return Response({"error": "Topilmadi"}, status=status.HTTP_404_NOT_FOUND)
+
+
+class GlobalLinkApiVIew(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        qs = GlobalLink.objects.all()
+        ser = GlobalLinkGetSerializer(qs, many=True, context={"request": request})
+        return Response(ser.data)
+
+
+class SaytDetailApi(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        obj = SaytDetail.objects.first()
+
+        if not obj:
+            return Response(
+                {"detail": "SaytDetail mavjud emas"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = SaytDetailSerializer(obj, context={"request": request})
+        return Response(serializer.data)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def global_slider(request):
+    qs = SliderSayt.objects.all()
+    ser = SliderGetSerializer(qs, many=True, context={"request": request})
+    return Response(ser.data)
+

@@ -9,7 +9,7 @@ class RegSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomerUser
-        fields = ['id', 'first_name', 'last_name','username', 'password',]
+        fields = ['id', 'first_name', 'email' 'last_name','username', 'password',]
 
     def create(self, validated_data):
         password = validated_data.pop('password')
@@ -17,3 +17,7 @@ class RegSerializer(serializers.ModelSerializer):
         user.set_password(password)
         user.save()
         return user
+class EmailUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomerUser
+        fields = ['email']

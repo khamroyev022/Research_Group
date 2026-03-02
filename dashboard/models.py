@@ -23,7 +23,7 @@ class PasswordResetCode(models.Model):
 
 
 
-class GrlobalLink(models.Model):
+class GlobalLink(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
     link = models.URLField()

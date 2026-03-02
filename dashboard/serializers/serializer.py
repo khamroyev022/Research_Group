@@ -1,7 +1,7 @@
 from rest_framework.exceptions import ValidationError
 from main.models import *
 from rest_framework import serializers
-
+from ..models import *
 class LangMixin:
     def get_language(self):
         request = self.context.get("request")
@@ -1019,4 +1019,33 @@ class MemberPatchStatusSerializer(serializers.ModelSerializer):
     class Meta:
         model = Member
         fields = ["status"]
+
+class GlobalLinkSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GlobalLink
+        fields = 'id','name','url','image',
+
+class SaytDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SaytDetail
+        fields = ['id', 'phone', 'email', 'facebook', 'twitter',
+                  'instagram', 'linkedin', 'telegram']
+
+class  SliderWebserializer(serializers.ModelSerializer):
+    class Meta:
+        model = SliderSayt
+        fields = 'id','image','created_at'
+
+
+
+
+
+
+
+
+
+
+
+
+
 

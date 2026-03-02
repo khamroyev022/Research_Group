@@ -23,6 +23,9 @@ router.register('conferences-seminars',ConferencesSeminarsViewSet)
 router.register('slider-groups',SliderGroupViewSet)
 router.register('group-media',GroupMediaViewSet)
 router.register('social-links',SosialLinkViewset)
+router.register('links', GlobalLinkViewset)
+router.register('global-link',SaytDetailViewSet)
+router.register('web-sliders',WebLinkApi)
 urlpatterns =[
     path('login/',loginviews,),
     path('register/',register,),
@@ -32,8 +35,8 @@ urlpatterns =[
     path("auth/verify-reset-code/", verify_reset_code),
     path("auth/reset-password/", reset_password),
     path('statistics/',statictika),
-    path('email-update/<uuid:pk>/',email_update),
-    path('email-update/<uuid:pk>', email_update),
+    path('email-update/<int:id>/',email_update),
+    path('email-update/<int:id>', email_update),
     path('contact-members/',ContactView.as_view()),
     path('member-status-change/<uuid:pk>/',MemberStatusView.as_view()),
     path('admin-log/',LogListAPIView.as_view()),

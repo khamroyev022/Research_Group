@@ -2,7 +2,7 @@ import uuid
 from rest_framework.decorators import api_view,APIView,permission_classes,action
 from rest_framework import viewsets
 from rest_framework.filters import SearchFilter, OrderingFilter
-
+from .models import GlobalLink
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
@@ -656,17 +656,17 @@ def statictika(request):
 
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
-def email_update(request,pk):
-    try :
-        user = CustomerUser.objects.get(pk=pk)
+def email_update(request, id):
+    try:
+        user = CustomerUser.objects.get(id=id)
     except CustomerUser.DoesNotExist:
-        return Response({
-            "error": "User not found"
-        },status=status.HTTP_404_NOT_FOUND)
-    ser = RegSerializer(user, data=request.data, partial=True)
-    if ser.is_valid(raise_exception=True):
+        return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    ser = EmailUpdateSerializer(user, data=request.data, partial=True)
+    if ser.is_valid():
         ser.save()
         return Response(ser.data)
+    return Response(ser.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class ContactView(APIView):
     permission_classes = [IsAuthenticated]
@@ -698,13 +698,35 @@ class MemberStatusView(APIView):
 
 
 
+class GlobalLinkViewset(ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = GlobalLink.objects.all()
+    serializer_class = GlobalLinkSerializer
+    pagination_class = None
 
+class SaytDetailViewSet(ModelViewSet):
+    queryset = SaytDetail.objects.all()
+    serializer_class = SaytDetailSerializer
+    pagination_class = None
 
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [AllowAny()]
+        return [IsAuthenticated()]
 
+    def create(self, request, *args, **kwargs):
+        if SaytDetail.objects.exists():
+            return Response(
+                {"detail": "SaytDetail allaqachon mavjud. POST mumkin emas, PUT/PATCH qiling."},
+                status=status.HTTP_409_CONFLICT
+            )
+        return super().create(request, *args, **kwargs)
 
-
-
-
+class WebLinkApi(ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = SliderSayt.objects.all()
+    serializer_class = SliderWebserializer
+    pagination_class = None
 
 
 
